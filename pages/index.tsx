@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -70,7 +71,7 @@ const Index = () => {
       // Animate through steps
       for (let i = 0; i < analysisSteps.length; i++) {
         setAnalysisStep(i)
-        setProgress((i / analysisSteps.length) * 80) // 80% for visual steps
+        setProgress(Math.round((i / analysisSteps.length) * 80)) // 80% for visual steps
         await new Promise(resolve => setTimeout(resolve, 800))
       }
 
@@ -158,11 +159,31 @@ const Index = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="relative min-h-screen bg-background text-foreground overflow-x-hidden select-none">
+      {/* Enhanced Aurora/Glassmorphism Background */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        {/* Primary aurora gradients - made more visible */}
+        <div className="absolute top-0 left-0 w-2/3 h-full bg-gradient-to-r from-primary/25 via-primary/10 to-transparent blur-3xl" />
+        <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-blue-500/25 via-purple-500/15 to-transparent blur-3xl" />
+        
+        {/* Additional aurora layers for depth - enhanced */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-cyan-400/20 to-blue-600/15 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-purple-400/20 to-pink-600/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-gradient-to-r from-emerald-400/15 to-teal-600/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}} />
+        
+        {/* Moving aurora effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-blue-500/5 animate-pulse" style={{animationDuration: '4s'}} />
+        
+        {/* Enhanced grid pattern overlay */}
+        <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(circle_at_1px_1px,_rgba(255,255,255,0.4)_1px,_transparent_0)] bg-[length:32px_32px]" />
+      </div>
+
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b border-border/30 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/40 shadow-lg shadow-black/5">
         <div className="container flex h-14 items-center justify-between">
-          <Logo />
+          <Link href="/" className="flex items-center space-x-2">
+            <Logo disableLink />
+          </Link>
           {hasStoredAnalysis && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -182,12 +203,6 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="relative py-20 md:py-32">
-        {/* Background Gradients */}
-        <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-primary/10 to-transparent blur-3xl" />
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-blue-500/10 to-transparent blur-3xl" />
-        </div>
-        
         <div className="container px-6 mx-auto">
           <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
             {/* Left Column - Content */}
@@ -213,16 +228,16 @@ const Index = () => {
                 </motion.div>
 
                 <motion.h1
-                  className="text-6xl lg:text-7xl font-bold leading-tight tracking-tighter"
+                  className="text-6xl lg:text-7xl font-bold leading-tight tracking-tighter select-none"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4, duration: 0.6 }}
                 >
-                  <span className="bg-gradient-to-r from-white via-gray-300 to-gray-500 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-slate-100 via-slate-200 to-slate-400 bg-clip-text text-transparent drop-shadow-lg">
                     Don't Just Apply.
                   </span>
                   <br />
-                  <span className="bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary via-blue-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
                     Get Hired.
                   </span>
                 </motion.h1>
@@ -245,7 +260,7 @@ const Index = () => {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="space-y-6"
             >
-              <Card className="p-8 backdrop-glass border-primary/20 bg-background/50">
+              <Card className="p-8 border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl shadow-primary/5 ring-1 ring-white/10">
                 <AnimatePresence mode="wait">
                   {isAnalyzing ? (
                     <motion.div
@@ -292,43 +307,17 @@ const Index = () => {
                       </motion.div>
 
                       {/* Progress Bar */}
-                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-slate-700/50 rounded-full h-2.5">
                         <motion.div
-                          className="h-full bg-gradient-to-r from-primary to-blue-400"
-                          initial={{ width: 0 }}
+                          className="bg-primary h-2.5 rounded-full"
+                          initial={{ width: '0%' }}
                           animate={{ width: `${progress}%` }}
-                          transition={{ duration: 0.5, ease: "easeOut" }}
+                          transition={{ duration: 0.5, ease: 'easeInOut' }}
                         />
                       </div>
-
-                      {/* Dynamic Message */}
-                      <div className="space-y-2">
-                        <motion.h3 
-                          className="text-xl font-semibold"
-                          key={analysisStep}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          Analyzing Your Resume
-                        </motion.h3>
-                        <motion.p 
-                          className={`text-muted-foreground ${analysisSteps[analysisStep]?.color || 'text-primary'}`}
-                          key={`step-${analysisStep}`}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.4 }}
-                        >
-                          {analysisSteps[analysisStep]?.message || "Processing your resume..."}
-                        </motion.p>
-                        <motion.p
-                          className="text-xs text-muted-foreground"
-                          animate={{ opacity: [0.5, 1, 0.5] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          {progress}% Complete
-                        </motion.p>
-                      </div>
+                      <p className="text-sm text-center mt-3 text-slate-400">
+                        {progress.toFixed(0)}% Complete
+                      </p>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -348,8 +337,10 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 bg-background">
-        <div className="container mx-auto px-6">
+      <section id="features" className="py-24 bg-background/80 backdrop-blur-sm relative">
+        {/* Subtle background pattern for features section */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/50 to-background/0" />
+        <div className="container mx-auto px-6 relative z-10">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold tracking-tighter">Why Choose Resumify?</h2>
             <p className="text-xl text-muted-foreground mt-4 max-w-3xl mx-auto">
@@ -366,7 +357,7 @@ const Index = () => {
                 transition={{ delay: 0.2 * index, duration: 0.6 }}
                 className="flex"
               >
-                <Card className="flex flex-col text-center bg-card/50 hover:bg-card/90 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 transform hover:-translate-y-1">
+                <Card className="flex flex-col text-center bg-white/5 border-white/10 backdrop-blur-md hover:bg-white/10 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/20 transition-all duration-300 transform hover:-translate-y-1 select-none">
                   <CardHeader className="flex-shrink-0">
                     <div className="mx-auto mb-4 bg-primary/10 p-3 rounded-full">
                       <feature.icon className={`h-8 w-8 ${feature.color}`} />
@@ -382,6 +373,18 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="py-8 bg-background border-t border-border/40">
+        <div className="container mx-auto px-6 text-center text-muted-foreground">
+          <p className="text-sm">
+            &copy; {new Date().getFullYear()} Resumify. All Rights Reserved.
+          </p>
+          <p className="text-xs mt-2 max-w-2xl mx-auto">
+            <strong>Privacy Note:</strong> We respect your privacy. Your resume and analysis results are processed in real-time and stored only in your browser's local storage. We do not save your personal data on our servers.
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }

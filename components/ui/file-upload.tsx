@@ -20,7 +20,7 @@ export function FileUpload({
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     'image/*': ['.png', '.jpg', '.jpeg'] 
   },
-  maxSize = 10 * 1024 * 1024, // 10MB
+  maxSize = 5 * 1024 * 1024, // 5MB
   className 
 }: FileUploadProps) {
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -33,7 +33,7 @@ export function FileUpload({
     if (rejectedFiles.length > 0) {
       const rejection = rejectedFiles[0]
       if (rejection.errors[0]?.code === 'file-too-large') {
-        setError('File is too large. Maximum size is 10MB.')
+        setError('File is too large. Maximum size is 5MB.')
       } else if (rejection.errors[0]?.code === 'file-invalid-type') {
         setError('Invalid file type. Please upload a PDF, DOCX, or image file.')
       }
@@ -123,7 +123,7 @@ export function FileUpload({
                   Drag & drop your file, or click to browse
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Supports PDF, DOCX, PNG, JPG up to 10MB
+                  Supports PDF, DOCX, PNG, JPG up to 5MB
                 </p>
               </div>
 

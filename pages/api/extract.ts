@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import formidable, { File } from 'formidable';
+import formidable from 'formidable';
 import fs from 'fs/promises';
 import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
@@ -13,7 +13,7 @@ export const config = {
 
 const formidableParse = async (req: NextApiRequest): Promise<{ fields: formidable.Fields; files: formidable.Files }> => {
   return new Promise((resolve, reject) => {
-    const form = new formidable.IncomingForm();
+    const form = formidable({});
     form.parse(req, (err, fields, files) => {
       if (err) return reject(err);
       resolve({ fields, files });
@@ -21,7 +21,7 @@ const formidableParse = async (req: NextApiRequest): Promise<{ fields: formidabl
   });
 };
 
-const extractText = async (file: File): Promise<string> => {
+const extractText = async (file: formidable.File): Promise<string> => {
   const filePath = file.filepath;
   
   if (file.mimetype === 'application/pdf') {
@@ -62,8 +62,8 @@ export default async function handler(
       return res.status(400).json({ error: 'No file uploaded.' });
     }
 
-    if (uploadedFile.size > 10 * 1024 * 1024) { // 10MB limit
-      return res.status(400).json({ error: 'File exceeds the 10MB size limit.' });
+    if (uploadedFile.size > 5 * 1024 * 1024) { // 5MB limit
+      return res.status(400).json({ error: 'File exceeds the 5MB size limit.' });
     }
 
     const allowedTypes = [

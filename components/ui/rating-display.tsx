@@ -52,6 +52,11 @@ export function RatingDisplay({
   showAnimation = true 
 }: RatingDisplayProps) {
   const config = sentimentConfig[sentiment]
+
+  if (!config) {
+    return null
+  }
+
   const Icon = config.icon
   const filledStars = Math.floor(score)
   const hasHalfStar = score % 1 >= 0.5
@@ -132,10 +137,10 @@ export function RatingDisplay({
             >
               <Star
                 className={cn(
-                  "h-5 w-5",
+                  "h-6 w-6",
                   i < filledStars || (i === filledStars && hasHalfStar)
-                    ? `${config.color} fill-current`
-                    : "text-muted/30"
+                    ? "text-yellow-400 fill-yellow-400"
+                    : "text-slate-600"
                 )}
               />
             </motion.div>
@@ -149,11 +154,10 @@ export function RatingDisplay({
           animate={showAnimation ? { opacity: 1, y: 0 } : false}
           transition={{ delay: 1.5, duration: 0.5 }}
         >
-          <div className={cn("flex items-center justify-center space-x-2", config.color)}>
-            <Icon className="h-5 w-5" />
-            <span className="font-semibold text-lg">{config.label}</span>
+          <div className={cn("flex items-center justify-center space-x-2")}>
+            <span className={cn("font-semibold text-lg", config.color)}>{config.label}</span>
           </div>
-          <p className="text-sm text-muted-foreground">{config.description}</p>
+          <p className="text-sm text-slate-400 max-w-xs mx-auto">{config.description}</p>
         </motion.div>
       </div>
     </motion.div>
