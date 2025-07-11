@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.local
+.next
+.DS_Store
+.cursorrules
+.cursor
+.cursorignore
+
+
