@@ -4,7 +4,8 @@ import { useRouter } from 'next/router'
 import Link from 'next/link'
 import {
   ArrowLeft, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp,
-  Briefcase, Zap, Lightbulb, Mail, GraduationCap, Palette, FileText, User, Code, Copy, ExternalLink, Sparkles
+  Briefcase, Zap, Lightbulb, Mail, GraduationCap, Palette, FileText, User, Code, Copy, ExternalLink, Sparkles,
+  Star, Eye // Removed Beer icon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -13,6 +14,15 @@ import { RatingDisplay } from '@/components/ui/rating-display'
 import { Logo } from '@/components/ui/logo'
 import { useToast } from '@/hooks/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
+import Image from 'next/image'
+
 
 type Suggestion = {
   type: 'improvement' | 'success' | 'warning' | 'error';
@@ -39,12 +49,57 @@ type AnalysisResult = {
 };
 
 type LaTeXRecommendation = {
-  recommendedTemplate: string;
-  confidence: number;
-  reasoning: string;
   generatedCode: string;
-  suggestions: string[];
 };
+
+// --- Template Configuration ---
+// We'll manage our templates here. This makes it easy to add new ones.
+const templates = [
+  {
+    id: 'developer-cv',
+    name: 'Developer CV',
+    description: 'A modern, clean CV for developers and software engineers.',
+    imageUrl: '/images/templates/developer-cv.png',
+    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=developer-cv-overleaf'
+  },
+  {
+    id: 'medium-length-professional-cv',
+    name: 'Professional CV',
+    description: 'A medium-length professional CV for experienced individuals.',
+    imageUrl: '/images/templates/medium-length-professional-cv.png',
+    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=medium-length-professional-cv-overleaf'
+  },
+  {
+    id: 'stylish-cv',
+    name: 'Stylish CV',
+    description: 'A visually appealing CV to make your profile stand out.',
+    imageUrl: '/images/templates/stylish-cv.png',
+    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=stylish-cv-overleaf'
+  },
+  {
+    id: 'freeman-cv',
+    name: 'Freeman CV/Resume',
+    description: 'A classic and elegant resume template suitable for many professions.',
+    imageUrl: '/images/templates/freeman-cv-resume.png',
+    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=freeman-cv-overleaf&engine=xelatex'
+  },
+  {
+    id: 'awesome-resume-cv',
+    name: 'Awesome Resume/CV',
+    description: 'A popular and feature-rich template for CVs and resumes.',
+    imageUrl: '/images/templates/awesome-resume-cv-and-cover-letter.png',
+    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=awesome-resume-cv-overleaf&engine=xelatex'
+  },
+  {
+    id: 'compact-academic-cv',
+    name: 'Compact Academic CV',
+    description: 'A space-efficient CV perfect for academic applications.',
+    imageUrl: '/images/templates/compact-academic-cv.png',
+    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=compact-academic-cv-overleaf'
+  }
+];
+// ----------------------------
+
 
 const Results = () => {
   const router = useRouter()
@@ -54,8 +109,9 @@ const Results = () => {
   const [error, setError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({})
-  const [latexRecommendation, setLatexRecommendation] = useState<LaTeXRecommendation | null>(null)
-  const [isGeneratingLatex, setIsGeneratingLatex] = useState(false)
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState<string | null>(null) // Stores the ID of the template being generated
+  const [selectedTemplate, setSelectedTemplate] = useState<typeof templates[0] | null>(null);
   const [showFullCode, setShowFullCode] = useState(false)
   const [resumeText, setResumeText] = useState<string>('')
 
@@ -170,14 +226,15 @@ const Results = () => {
     }
   };
 
-  const generateLatexRecommendation = async () => {
-    if (!resumeText || isGeneratingLatex) return;
+  const generateLatexRecommendation = async (templateId: string) => {
+    if (!resumeText || isGenerating) return;
 
-    setIsGeneratingLatex(true);
-    toast({
-      title: "Generating Recommendation",
-      description: "AI is analyzing your resume and creating a personalized LaTeX template...",
-    });
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    setSelectedTemplate(template);
+    setIsGenerating(templateId);
+    setGeneratedCode(null); // Clear previous code
 
     try {
       const response = await fetch('/api/latex-recommendation', {
@@ -185,29 +242,30 @@ const Results = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ resumeText }),
+        body: JSON.stringify({ resumeText, templateId }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate recommendation');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate recommendation');
       }
 
       const data = await response.json();
-      setLatexRecommendation(data.recommendation);
+      setGeneratedCode(data.recommendation.generatedCode);
 
       toast({
-        title: "Recommendation Ready!",
-        description: "Your personalized LaTeX template has been generated",
+        title: "Your Resume is Ready!",
+        description: `Personalized LaTeX code generated successfully.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating LaTeX recommendation:', error);
       toast({
         title: "Generation Failed",
-        description: "Could not generate LaTeX recommendation. Please try again.",
+        description: error.message || "Could not generate LaTeX recommendation. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingLatex(false);
+      setIsGenerating(null);
     }
   };
 
@@ -269,6 +327,14 @@ const Results = () => {
             <Logo />
           </Link>
           <div className="flex items-center gap-4">
+            <a href="https://coff.ee/waisnu" target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" className="flex items-center gap-2 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10">
+                   
+                    <span className="hidden sm:inline text-sm">Buy me a beer</span>
+                    <span className="text-lg">🍺</span>
+
+                </Button>
+            </a>
             <Button onClick={handleAnalyzeAnother} className="bg-primary hover:bg-primary/90 text-white">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Analyze Another
@@ -280,21 +346,31 @@ const Results = () => {
       <div ref={reportRef} className="p-4 md:p-8 bg-slate-950">
         <main className="max-w-7xl mx-auto space-y-8">
           <div className="text-center pt-8 pb-4">
-            <h1 className="text-4xl font-bold tracking-tighter bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">Resume Analysis Report</h1>
-            <p className="text-slate-400 mt-2">For: {fileName 
-    ? fileName
-        .replace(/\.[^/.]+$/, "") // Remove file extension
-        .replace(/_/g, ' ')       // Replace underscores with spaces
-        .replace(/resume/i, '')   // Remove 'resume' (case-insensitive)
-        .trim()                  // Trim whitespace
-    : 'your resume'}</p>
+            <h1 className="text-4xl font-bold tracking-tighter bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
+              Your Resume Analysis Report
+            </h1>
+            <p className="text-slate-400 mt-2 mb-4">
+              For: {fileName 
+        ? fileName
+            .replace(/\.[^/.]+$/, "") // Remove file extension
+            .replace(/_/g, ' ')       // Replace underscores with spaces
+            .replace(/resume/i, '')   // Remove 'resume' (case-insensitive)
+            .trim()                  // Trim whitespace
+        : 'your resume'}
+            </p>
+            <div className="flex justify-center">
+              <Badge variant="secondary" className="bg-primary/10 border-primary/20 text-primary">
+                <Sparkles className="mr-2 h-3 w-3" />
+                AI-Powered Optimization Complete
+              </Badge>
+            </div>
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="details">Detailed Feedback</TabsTrigger>
-              <TabsTrigger value="latex">AI LaTeX Recommendations</TabsTrigger>
+              <TabsTrigger value="latex">AI Resume Generator</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-8">
@@ -442,11 +518,10 @@ const Results = () => {
               <div className="space-y-8">
                 <div className="text-center mb-8">
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-                    AI LaTeX Recommendations
+                    Step 1: Unlock Professional LaTeX Power
                   </h2>
-                  <p className="text-slate-400 max-w-3xl mx-auto">
-                    Get a personalized LaTeX resume template generated specifically for your profile. 
-                    Our AI analyzes your experience and recommends the best template format optimized for your target roles.
+                   <p className="text-slate-400 max-w-3xl mx-auto">
+                    LaTeX creates publication-quality resumes that stand out from the crowd. Used by top tech companies and academic institutions worldwide.
                   </p>
                 </div>
 
@@ -457,54 +532,89 @@ const Results = () => {
                       <Code className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold mb-2 text-white">What is Overleaf?</h3>
+                      <h3 className="text-xl font-semibold mb-2 text-white">Why Overleaf is Your Secret Weapon</h3>
                       <p className="text-slate-300 mb-4">
-                        Overleaf is a collaborative cloud-based LaTeX editor used by over 13 million students and academics worldwide. 
-                        It's the industry standard for creating professional, publication-quality documents without installing software.
+                        Overleaf is trusted by over 13 million professionals worldwide to create stunning, ATS-friendly documents. 
+                        No software installation needed - just professional results that get you noticed.
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">No Installation</Badge>
-                        <Badge variant="secondary">Real-time Collaboration</Badge>
-                        <Badge variant="secondary">Professional Output</Badge>
-                        <Badge variant="secondary">ATS-Friendly</Badge>
+                        <Badge variant="secondary">Zero Setup Required</Badge>
+                        <Badge variant="secondary">Industry Standard</Badge>
+                        <Badge variant="secondary">ATS-Optimized</Badge>
+                        <Badge variant="secondary">Recruiter Approved</Badge>
                       </div>
                     </div>
                   </div>
                 </Card>
 
-                {/* Generate Recommendation Button */}
-                <div className="text-center">
-                  <Button 
-                    onClick={generateLatexRecommendation}
-                    disabled={isGeneratingLatex || !resumeText}
-                    className="px-8 py-3 text-lg"
-                  >
-                    {isGeneratingLatex ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          className="mr-2"
-                        >
-                          <Sparkles className="h-5 w-5" />
-                        </motion.div>
-                        Generating AI Recommendation...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-5 w-5" />
-                        Generate AI Recommendation
-                      </>
-                    )}
-                  </Button>
-                  {!resumeText && (
-                    <p className="text-slate-400 text-sm mt-2">Resume text not available. Please re-analyze your resume.</p>
-                  )}
-                                 </div>
+                <div className="text-center mb-8 pt-8">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+                    Step 2: Choose Your Winning Template
+                  </h2>
+                  <p className="text-slate-400 max-w-3xl mx-auto">
+                    Select from our curated collection of professional templates. Our AI will transform your content into a polished, interview-ready resume.
+                  </p>
+                </div>
 
-                 {/* AI Recommendation Results */}
+                {/* --- Template Carousel --- */}
+                <div className="w-full max-w-4xl mx-auto">
+                   <Carousel
+                    opts={{
+                      align: "start",
+                      loop: true,
+                    }}
+                    className="w-full"
+                  >
+                    <CarouselContent>
+                      {templates.map((template) => (
+                        <CarouselItem key={template.id} className="md:basis-1/2 lg:basis-1/3">
+                          <div className="p-1">
+                            <Card
+                              onClick={() => generateLatexRecommendation(template.id)}
+                              className={`overflow-hidden bg-slate-900 border border-slate-800 hover:border-primary transition-all duration-300 cursor-pointer group ${
+                                selectedTemplate?.id === template.id && !isGenerating ? 'ring-2 ring-primary' : ''
+                              }`}
+                            >
+                              <div className="relative h-48 w-full">
+                                <Image
+                                  src={template.imageUrl}
+                                  alt={template.name}
+                                  layout="fill"
+                                  objectFit="cover"
+                                  className="transition-transform duration-300 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                                 <AnimatePresence>
+                                  {isGenerating === template.id && (
+                                    <motion.div
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      exit={{ opacity: 0 }}
+                                      className="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center"
+                                    >
+                                      <div className="w-16 h-16 border-4 border-t-4 border-t-primary border-slate-700 rounded-full animate-spin"></div>
+                                      <p className="text-slate-300 mt-4 text-sm font-semibold">Generating...</p>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                              <div className="p-4">
+                                <h3 className="font-bold text-lg text-slate-50">{template.name}</h3>
+                                <p className="text-sm text-slate-400 mt-1 h-10">{template.description}</p>
+                              </div>
+                            </Card>
+                          </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="ml-8 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300" />
+                    <CarouselNext className="mr-8 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300" />
+                  </Carousel>
+                </div>
+
+                {/* --- Generated Code Section --- */}
                  <AnimatePresence>
-                   {latexRecommendation && (
+                   {generatedCode && selectedTemplate && (
                      <motion.div
                        initial={{ opacity: 0, y: 20 }}
                        animate={{ opacity: 1, y: 0 }}
@@ -512,51 +622,19 @@ const Results = () => {
                        transition={{ duration: 0.5 }}
                        className="space-y-6"
                      >
-                       {/* Template Recommendation */}
-                       <Card className="p-6 bg-slate-900 border border-slate-800">
-                         <h3 className="text-xl font-semibold mb-4 flex items-center">
-                           <Sparkles className="mr-3 h-6 w-6 text-primary" />
-                           Recommended Template: {latexRecommendation.recommendedTemplate}
-                         </h3>
-                         <div className="grid md:grid-cols-2 gap-6">
-                           <div>
-                             <h4 className="font-semibold mb-2 text-slate-300">AI Analysis</h4>
-                             <p className="text-slate-300 text-sm mb-4">{latexRecommendation.reasoning}</p>
-                             <div className="flex items-center gap-2">
-                               <span className="text-sm text-slate-400">Confidence:</span>
-                               <div className="flex items-center gap-2">
-                                 <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
-                                   <div 
-                                     className="h-full bg-primary transition-all duration-1000"
-                                     style={{ width: `${latexRecommendation.confidence * 100}%` }}
-                                   ></div>
-                                 </div>
-                                 <span className="text-sm font-semibold text-slate-300">
-                                   {Math.round(latexRecommendation.confidence * 100)}%
-                                 </span>
-                               </div>
-                             </div>
-                           </div>
-                           <div>
-                             <h4 className="font-semibold mb-2 text-slate-300">Improvement Suggestions</h4>
-                             <ul className="space-y-1">
-                               {latexRecommendation.suggestions.slice(0, 3).map((suggestion, index) => (
-                                 <li key={index} className="text-sm text-slate-300 flex items-start gap-2">
-                                   <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-400" />
-                                   <span>{suggestion}</span>
-                                 </li>
-                               ))}
-                             </ul>
-                           </div>
-                         </div>
-                       </Card>
+                       <div className="text-center">
+                          <h2 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+                            Step 3: Launch Your Career with LaTeX
+                          </h2>
+                          <p className="text-slate-400">Your interview-ready LaTeX code for the <span className="font-bold text-primary">{selectedTemplate.name}</span> template is ready to deploy!</p>
+                       </div>
 
                        {/* Generated LaTeX Code */}
                        <Card className="p-6 bg-slate-900 border border-slate-800">
                          <div className="flex justify-between items-center mb-4">
                            <h3 className="text-xl font-semibold flex items-center">
                              <Code className="mr-3 h-6 w-6 text-primary" />
-                             Generated LaTeX Code
+                             Your Personalized LaTeX Code
                            </h3>
                            <div className="flex gap-2">
                              <Button
@@ -567,7 +645,7 @@ const Results = () => {
                                {showFullCode ? 'Show Preview' : 'Show Full Code'}
                              </Button>
                              <Button
-                               onClick={() => copyToClipboard(latexRecommendation.generatedCode)}
+                               onClick={() => copyToClipboard(generatedCode)}
                                variant="outline"
                                size="sm"
                              >
@@ -579,62 +657,47 @@ const Results = () => {
                          
                          <div className="relative">
                            <pre className={`bg-slate-950 p-4 rounded-lg overflow-auto text-sm text-slate-300 border border-slate-700 ${
-                             showFullCode ? 'max-h-none' : 'max-h-64'
+                             showFullCode ? 'max-h-none' : 'max-h-[500px]'
                            }`}>
-                             <code>{showFullCode ? latexRecommendation.generatedCode : latexRecommendation.generatedCode.slice(0, 500) + '...'}</code>
+                             <code>{generatedCode}</code>
                            </pre>
-                           {!showFullCode && (
-                             <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none"></div>
-                           )}
                          </div>
                        </Card>
 
                        {/* Overleaf Instructions */}
                        <Card className="p-6 bg-slate-900 border border-slate-800">
-                         <h3 className="text-xl font-semibold mb-4 flex items-center">
-                           <ExternalLink className="mr-3 h-6 w-6 text-primary" />
-                           Ready to Create Your Resume?
-                         </h3>
-                         <div className="grid md:grid-cols-2 gap-6 text-slate-300">
-                           <div>
-                             <h4 className="font-semibold mb-3 text-slate-300">Step 1: Open Overleaf</h4>
-                             <p className="text-sm mb-4">Click the button below to go to Overleaf and sign in with your Google account for quick access.</p>
-                             
-                             <h4 className="font-semibold mb-3 text-slate-300">Step 2: Create New Project</h4>
-                             <p className="text-sm">Choose "Blank Project" and paste the generated LaTeX code above into the main.tex file.</p>
-                           </div>
-                           <div>
-                             <h4 className="font-semibold mb-3 text-slate-300">Step 3: Customize & Compile</h4>
-                             <p className="text-sm mb-4">Edit your information, apply our suggestions, then click "Recompile" to see your beautiful resume!</p>
-                             
-                             <h4 className="font-semibold mb-3 text-slate-300">Step 4: Download PDF</h4>
-                             <p className="text-sm">Once satisfied, download as PDF and start applying to your dream jobs!</p>
-                           </div>
-                         </div>
-                         
-                         <div className="mt-6 text-center">
-                           <Button asChild className="bg-primary hover:bg-primary/90 text-white px-8 py-3">
-                             <a href="https://www.overleaf.com/project/652f8c40f0b194dd2587a391" target="_blank" rel="noopener noreferrer">
-                               <ExternalLink className="mr-2 h-5 w-5" />
-                               Open Overleaf & Sign In with Google
-                             </a>
-                           </Button>
-                         </div>
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex-1">
+                              <h3 className="text-xl font-semibold mb-2 flex items-center">
+                                <ExternalLink className="mr-3 h-6 w-6 text-primary" />
+                                Ready to Create Your Resume?
+                              </h3>
+                              <p className="text-slate-300 text-sm">
+                                Click the button to open the <strong>{selectedTemplate.name}</strong> template directly in Overleaf. 
+                                Sign in, create a blank `main.tex` file, and paste your generated code. Then just click "Recompile"!
+                              </p>
+                            </div>
+                            <Button asChild className="bg-primary hover:bg-primary/90 text-white px-8 py-3 text-lg shrink-0">
+                               <a href={selectedTemplate.overleafUrl} target="_blank" rel="noopener noreferrer">
+                                 <ExternalLink className="mr-2 h-5 w-5" />
+                                 Open {selectedTemplate.name} in Overleaf
+                               </a>
+                            </Button>
+                          </div>
                        </Card>
                      </motion.div>
                    )}
                  </AnimatePresence>
 
-                 {/* Pro Tip */}
-                 <Card className="p-6 bg-slate-900 border border-slate-800">
-                   <div className="text-center">
-                     <h3 className="text-xl font-semibold mb-2 text-white">🚀 Pro Tip</h3>
-                     <p className="text-slate-300">
-                       LaTeX resumes are preferred by 89% of technical recruiters at FAANG companies. 
-                       They're ATS-friendly, professionally formatted, and show attention to detail that sets you apart from other candidates.
-                     </p>
+                 {/* Pro Tip - Minimized */}
+                 {!generatedCode && (
+                   <div className="text-center mt-8">
+                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full text-sm text-primary">
+                       <span className="text-xs">💡</span>
+                       <span>Pro Tip: LaTeX resumes are preferred by technical recruiters</span>
+                     </div>
                    </div>
-                 </Card>
+                 )}
               </div>
             </TabsContent>
           </Tabs>

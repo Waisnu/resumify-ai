@@ -1,0 +1,6 @@
+1. Developer CV - https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=developer-cv-overleaf
+2. Medium Length Professional CV - https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=medium-length-professional-cv-overleaf
+3. Stylish CV - https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=stylish-cv-overleaf
+4. Freeman CV/Resume - https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=freeman-cv-overleaf&engine=xelatex
+5. Awesome Resume/CV and Cover Letter - https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=awesome-resume-cv-overleaf&engine=xelatex
+6. Compact Academic CV - https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=compact-academic-cv-overleaf

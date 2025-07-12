@@ -1,11 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { incrementCounter, logError } from '@/lib/admin-stats';
 
 // --- Smart API Key Manager ---
-const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').filter(Boolean);
+const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').map(key => key.trim()).filter(Boolean);
 if (apiKeys.length === 0) {
   throw new Error('GEMINI_API_KEYS is not set or empty in environment variables.');
 }
+
+// Removed debug logging that could expose API key information for security
 
 let currentKeyIndex = 0;
 const getApiKey = () => {
@@ -24,7 +27,7 @@ const getAIClient = () => {
 }
 // ----------------------------
 
-const MODEL_NAME = "gemini-1.5-flash-latest";
+const MODEL_NAME = "gemini-2.5-flash";
 
 // Define the expected JSON structure for the AI's response
 const jsonOutputSchema = {
@@ -73,73 +76,95 @@ const safetySettings = [
   },
 ];
 
+// --- Resilient AI Generation with Failover ---
+async function generateWithFailover(prompt: string, retries = apiKeys.length) {
+  let attempts = 0;
+  while (attempts < retries) {
+    const client = getAIClient();
+    const model = client.getGenerativeModel({ model: MODEL_NAME });
+    
+    // Log which key index we are trying
+    const keyIndex = (currentClientIndex - 1 + apiKeys.length) % apiKeys.length;
+    console.log(`Attempt ${attempts + 1}/${retries}: Using API Key #${keyIndex + 1}`);
+
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig,
+        safetySettings,
+      });
+      // If we get a result, return it immediately.
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown API error';
+      console.warn(`API Key #${keyIndex + 1} failed. Error: ${errorMessage}`);
+      await logError(`API Key #${keyIndex + 1} failed: ${errorMessage}`);
+      
+      attempts++;
+      if (attempts >= retries) {
+        // If we've exhausted all keys, throw the last error.
+        console.error("All API keys failed.");
+        throw new Error("All AI models are currently unavailable. Please try again later.");
+      }
+      // Otherwise, the loop will continue with the next key.
+    }
+  }
+  // This part should be unreachable, but as a fallback:
+  throw new Error("Failed to generate content after multiple attempts.");
+}
+// ------------------------------------------
+
 
 const buildPrompt = (resumeText: string) => `
-You are a world-class career coach and resume analysis expert. Your task is to analyze the provided resume text and return a detailed, actionable analysis.
+You are an expert resume analyst. Analyze this resume and provide structured feedback.
 
-**CRITICAL INSTRUCTIONS FOR ACCURATE ANALYSIS:**
+**ANALYSIS REQUIREMENTS:**
+1. **Content & Impact**: Quantified achievements, action verbs, clear impact
+2. **Formatting**: Scannable layout, consistent dates, professional presentation  
+3. **Skills**: Relevant, categorized skills for modern roles
+4. **Contact**: Professional email, LinkedIn presence
 
-🚨 **NAMES & PROPER NOUNS**: 
-- NEVER flag personal names as spelling errors, regardless of spelling or cultural origin
-- Respect names
-- Do NOT suggest changes to company names, place names, or personal names
-- Focus on actual content and formatting issues, not proper nouns
+**CRITICAL RULES:**
+- NEVER flag personal names as errors
+- Focus on substance, not proper nouns
+- Identify both improvements AND successes
+- Be encouraging yet constructive
 
-🎯 **ANALYSIS FOCUS AREAS:**
-1. **Content Quality**: Skills relevance, experience descriptions, achievements quantification
-2. **Formatting**: Consistency in dates, bullet points, section organization
-3. **Professional Language**: Tone, action verbs, industry terminology
-4. **Structure**: Logical flow, section hierarchy, information completeness
-5. **Impact**: Results-oriented descriptions, measurable achievements
+**HR PERSPECTIVE:** Write as a hiring manager reviewing this resume.
 
-📍 **SPECIFIC SECTION GUIDANCE:**
-- **Contact**: Check for professional email, LinkedIn URL, appropriate phone format
-- **Objective/Summary**: Look for specificity, value proposition, career goals alignment
-- **Experience**: Focus on action verbs, quantified results, relevance to target roles
-- **Skills**: Technical accuracy, relevance, proper categorization
-- **Education**: Completeness, relevance, proper formatting
-- **Formatting**: Date consistency, bullet point alignment, font/spacing uniformity
-
-✍️ **HR PERSPECTIVE**:
-- Provide a brief, first-person summary as if you were a hiring manager reviewing this resume.
-- Start with phrases like "As a recruiter, I feel...", "My initial impression is...", etc.
-- If the resume is strong, be encouraging. 
-- If it needs work, be constructive and gentle, e.g., "I'm slightly confused about the main objective here..."
-
-⚡ **ENHANCED OUTPUT REQUIREMENTS:**
-For each suggestion, include:
-- Specific location/section where the issue occurs
-- Clear before/after examples when applicable
-- Priority level for improvement order
-- Actionable next steps
-
-**STRICT JSON OUTPUT:** Your entire response MUST be a single, valid JSON object that conforms exactly to this schema. Do NOT include any text, markdown, or commentary outside of the JSON object.
-
-**JSON OUTPUT SCHEMA:**
-\`\`\`json
-${JSON.stringify({
-  ...jsonOutputSchema,
-  suggestions: [
-    {
-      type: "'improvement' | 'success' | 'warning' | 'error'",
-      category: "'Formatting' | 'Content' | 'Skills' | 'Contact' | 'Experience' | 'Education' | 'General'",
-      message: "string",
-      impact: "'low' | 'medium' | 'high' | 'positive'",
-      section: "string (specific resume section where this applies)",
-      priority: "number (1-5, where 1 is highest priority)",
-      actionable: "string (specific action the user should take)"
+**JSON OUTPUT REQUIRED:**
+${JSON.stringify(
+  {
+    score: "number (1-5)",
+    sentiment: "'poor' | 'fair' | 'good' | 'excellent'",
+    suggestions: [
+      {
+        type: "'improvement' | 'success' | 'warning' | 'error'",
+        category: "'Formatting' | 'Content' | 'Skills' | 'Contact' | 'Experience' | 'Education' | 'General'",
+        message: "string",
+        impact: "'low' | 'medium' | 'high' | 'positive'",
+        section: "string",
+        priority: "number (1-5)",
+        actionable: "string"
+      }
+    ],
+    summary: {
+      strengths: ["string"],
+      improvements: ["string"]
+    },
+    hrPerspective: {
+      sentiment: "'positive' | 'neutral' | 'negative'",
+      summary: "string"
     }
-  ]
-}, null, 2)}
-\`\`\`
+  },
+  null,
+  2
+)}
 
-**Resume Text to Analyze:**
+**Resume:**
 ---
 ${resumeText}
----
-
-Remember: Focus on helping the candidate improve their resume's effectiveness, not correcting valid names or cultural expressions. Be constructive, specific, and actionable in your feedback.
-`;
+---`;
 
 export default async function handler(
   req: NextApiRequest,
@@ -159,37 +184,51 @@ export default async function handler(
   try {
     const prompt = buildPrompt(text);
 
-    // Get a client from the pool for this request
-    const genAI = getAIClient();
-    const model = genAI.getGenerativeModel({
-      model: MODEL_NAME,
-    });
-
     console.log(`📝 Calling Gemini API with model: ${MODEL_NAME}`);
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig,
-      safetySettings
-    });
+    const result = await generateWithFailover(prompt);
 
     const responseJson = result.response.text();
     const parsedResponse = JSON.parse(responseJson);
 
     console.log('🎉 Analysis response generated successfully');
+    
+    // Track successful analysis
+    await incrementCounter('totalAnalyses');
+    
     return res.status(200).json(parsedResponse);
 
   } catch (error) {
     console.error('❌ Error analyzing resume with Gemini API:', error);
-
-    if (error instanceof Error) {
-        if (error.message.includes('503') || error.message.includes('overloaded')) {
-            return res.status(503).json({ error: 'The AI model is currently overloaded. Please try again in a few moments.' });
-        }
-        if (error.message.includes('JSON')) {
-            return res.status(500).json({ error: 'The AI returned an invalid response. Please try again.' });
-        }
-    }
     
+    // Log the error for admin tracking
+    await logError(`Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('503') || error.message.includes('overloaded')) {
+        return res.status(503).json({ error: 'The AI model is currently overloaded. Please try again in a few moments.' });
+      }
+      if (error.message.includes('JSON')) {
+        // Let's try to repair the JSON
+        const responseText = error.stack || error.toString();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch && jsonMatch[0]) {
+          try {
+            const repairedJson = JSON.parse(jsonMatch[0]);
+            console.log('🔧 Repaired malformed JSON from Gemini response');
+            
+            // Track successful analysis even if we had to repair JSON
+            await incrementCounter('totalAnalyses');
+            
+            return res.status(200).json(repairedJson);
+          } catch (parseError) {
+            console.error('❌ Failed to repair JSON:', parseError);
+            await logError(`JSON repair failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+            return res.status(500).json({ error: 'The AI returned an invalid response that could not be repaired.' });
+          }
+        }
+        return res.status(500).json({ error: 'The AI returned an invalid response. Please try again.' });
+      }
+    }
     return res.status(500).json({ error: 'Failed to analyze resume due to an unexpected error.' });
   }
 } 

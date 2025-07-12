@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 import { createWorker } from 'tesseract.js';
+import { incrementCounter, logError } from '@/lib/admin-stats';
 
 export const config = {
   api: {
@@ -85,14 +86,23 @@ export default async function handler(
       const errorMsg = uploadedFile.mimetype.startsWith('image/')
         ? 'Could not extract text from the image. The image may be blurry or contain no text.'
         : 'Could not extract text from the document. It might be empty or protected.';
+      
+      await logError(`Text extraction failed: ${errorMsg} (File type: ${uploadedFile.mimetype})`);
       return res.status(400).json({ error: errorMsg });
     }
+
+    // Track successful resume processing
+    await incrementCounter('totalResumes');
 
     return res.status(200).json({ text: extractedText });
 
   } catch (error) {
     console.error('Error processing file upload:', error);
     const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    
+    // Log the error for admin tracking
+    await logError(`File processing failed: ${message}`);
+    
     return res.status(500).json({ error: `Error processing file: ${message}` });
   }
 } 

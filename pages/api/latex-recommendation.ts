@@ -1,8 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import path from 'path';
+import fs from 'fs/promises';
+import { incrementCounter, logError } from '@/lib/admin-stats';
 
 // --- Smart API Key Manager ---
-const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').filter(Boolean);
+const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').map(key => key.trim()).filter(Boolean);
 if (apiKeys.length === 0) {
   throw new Error('GEMINI_API_KEYS is not set or empty in environment variables.');
 }
@@ -20,182 +23,88 @@ const MODEL_NAME = "gemini-1.5-flash-latest";
 
 const generationConfig = {
     responseMimeType: 'application/json',
-    temperature: 0.5,
+    temperature: 0.3, // Lower temperature for more predictable, structured output
 };
 
 const safetySettings = [
-  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
 ];
 
+// --- Resilient AI Generation with Failover ---
+async function generateWithFailover(prompt: string, retries = apiKeys.length) {
+  let attempts = 0;
+  while (attempts < retries) {
+    const client = getAIClient();
+    const model = client.getGenerativeModel({ model: MODEL_NAME });
 
-// LaTeX Template Definitions (simplified, as the AI will generate the full code)
-const LATEX_TEMPLATES = {
-  softwareEngineer: `\\documentclass{resume}
-\\usepackage[left=0.4 in,top=0.4in,right=0.4 in,bottom=0.4in]{geometry}
-\\newcommand{\\tab}[1]{\\hspace{.2667\\textwidth}\\rlap{#1}} 
-\\newcommand{\\itab}[1]{\\hspace{0em}\\rlap{#1}}
-\\name{[NAME]}
-\\address{[PHONE] \\\\ [LOCATION]}
-\\address{[EMAIL] \\\\ [LINKEDIN] \\\\ [GITHUB] \\\\ [PORTFOLIO]}
+    const keyIndex = (currentClientIndex - 1 + apiKeys.length) % apiKeys.length;
+    console.log(`Attempt ${attempts + 1}/${retries}: Using API Key #${keyIndex + 1} for LaTeX generation.`);
 
-\\begin{document}
-
-\\begin{rSection}{OBJECTIVE}
-{[OBJECTIVE]}
-\\end{rSection}
-
-\\begin{rSection}{Education}
-[EDUCATION]
-\\end{rSection}
-
-\\begin{rSection}{SKILLS}
-\\begin{tabular}{ @{} >{\\bfseries}l @{\\hspace{6ex}} l }
-Programming Languages & [PROGRAMMING_LANGUAGES]\\\\
-Frameworks & [FRAMEWORKS]\\\\
-Tools & [TOOLS]\\\\
-\\end{tabular}\\\\
-\\end{rSection}
-
-\\begin{rSection}{EXPERIENCE}
-[EXPERIENCE]
-\\end{rSection}
-
-\\begin{rSection}{PROJECTS}
-[PROJECTS]
-\\end{rSection}
-
-\\end{document}`,
-  dataScientist: `\\documentclass{resume}
-\\usepackage[left=0.4 in,top=0.4in,right=0.4 in,bottom=0.4in]{geometry}
-\\newcommand{\\tab}[1]{\\hspace{.2667\\textwidth}\\rlap{#1}} 
-\\newcommand{\\itab}[1]{\\hspace{0em}\\rlap{#1}}
-\\name{[NAME]}
-\\address{[PHONE] \\\\ [LOCATION]}
-\\address{[EMAIL] \\\\ [LINKEDIN] \\\\ [GITHUB]}
-
-\\begin{document}
-
-\\begin{rSection}{OBJECTIVE}
-{[OBJECTIVE]}
-\\end{rSection}
-
-\\begin{rSection}{Education}
-[EDUCATION]
-\\end{rSection}
-
-\\begin{rSection}{TECHNICAL SKILLS}
-\\begin{tabular}{ @{} >{\\bfseries}l @{\\hspace{6ex}} l }
-Programming & [PROGRAMMING_LANGUAGES]\\\\
-Data Science & [DATA_SCIENCE_TOOLS]\\\\
-Machine Learning & [ML_FRAMEWORKS]\\\\
-Databases & [DATABASES]\\\\
-Visualization & [VISUALIZATION_TOOLS]\\\\
-\\end{tabular}\\\\
-\\end{rSection}
-
-\\begin{rSection}{EXPERIENCE}
-[EXPERIENCE]
-\\end{rSection}
-
-\\begin{rSection}{RESEARCH \& PROJECTS}
-[PROJECTS]
-\\end{rSection}
-
-\\end{document}`,
-  productManager: `\\documentclass{resume}
-\\usepackage[left=0.4 in,top=0.4in,right=0.4 in,bottom=0.4in]{geometry}
-\\newcommand{\\tab}[1]{\\hspace{.2667\\textwidth}\\rlap{#1}} 
-\\newcommand{\\itab}[1]{\\hspace{0em}\\rlap{#1}}
-\\name{[NAME]}
-\\address{[PHONE] \\\\ [LOCATION]}
-\\address{[EMAIL] \\\\ [LINKEDIN]}
-
-\\begin{document}
-
-\\begin{rSection}{SUMMARY}
-{[OBJECTIVE]}
-\\end{rSection}
-
-\\begin{rSection}{Education}
-[EDUCATION]
-\\end{rSection}
-
-\\begin{rSection}{CORE COMPETENCIES}
-\\begin{tabular}{ @{} >{\\bfseries}l @{\\hspace{6ex}} l }
-Product Strategy & [PRODUCT_STRATEGY]\\\\
-Analytics & [ANALYTICS_TOOLS]\\\\
-Technical Skills & [TECHNICAL_SKILLS]\\\\
-Leadership & [LEADERSHIP_SKILLS]\\\\
-\\end{tabular}\\\\
-\\end{rSection}
-
-\\begin{rSection}{EXPERIENCE}
-[EXPERIENCE]
-\\end{rSection}
-
-\\begin{rSection}{ACHIEVEMENTS \& IMPACT}
-[ACHIEVEMENTS]
-\\end{rSection}
-
-\\end{document}`
-};
-
-const buildPrompt = (resumeText: string) => `
-You are a world-class career coach and expert LaTeX resume creator. Your task is to analyze the provided resume text and generate a complete, professional LaTeX resume based on the best-fitting template.
-
-**ANALYSIS & GENERATION STEPS:**
-
-1.  **Analyze the Resume**: Carefully read the following resume text to understand the candidate's profile, experience, skills, and career focus.
-    \`\`\`
-    ${resumeText}
-    \`\`\`
-
-2.  **Select the Best Template**: Based on your analysis, choose the most appropriate template from the following options:
-    *   \`softwareEngineer\`: For software engineering, web/mobile development, or other technical coding roles.
-    *   \`dataScientist\`: For roles in data science, machine learning, analytics, and business intelligence.
-    *   \`productManager\`: For product management, project management, or business-focused roles.
-
-3.  **Generate the LaTeX Code**:
-    *   Use the standard resume.cls format (like the provided FAANG example).
-    *   Populate the chosen template with the user's information extracted from the resume text.
-    *   Replace ALL placeholders like [NAME], [EMAIL], [EXPERIENCE] etc., with the actual information.
-    *   Format experience, education, and projects professionally. Use \\textbf for titles, \\hfill for dates/locations, and \\item for bullet points.
-    *   Ensure the generated code is clean, complete, and ready to be compiled in an editor like Overleaf.
-
-4.  **Provide Improvement Suggestions**: Based on the resume content, provide 3-5 specific, actionable suggestions for how the user could improve their resume content. Focus on quantifying achievements, using stronger action verbs, and tailoring content to target roles.
-
-**JSON OUTPUT SPECIFICATION:**
-
-Your entire response MUST be a single, valid JSON object. Do NOT include any text, markdown, or commentary outside of this JSON object.
-
-The JSON object must have the following structure:
-\`\`\`json
-{
-  "recommendedTemplate": "softwareEngineer" | "dataScientist" | "productManager",
-  "confidence": <number between 0.0 and 1.0>,
-  "reasoning": "<string: A brief, one-sentence explanation for why you chose the template>",
-  "generatedCode": "<string: The complete, ready-to-compile LaTeX code>",
-  "suggestions": [
-    "<string: suggestion 1>",
-    "<string: suggestion 2>",
-    ...
-  ]
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig,
+        safetySettings,
+      });
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown API error';
+      console.warn(`LaTeX Gen API Key #${keyIndex + 1} failed. Error: ${errorMessage}`);
+      await logError(`LaTeX Gen API Key #${keyIndex + 1} failed: ${errorMessage}`);
+      
+      attempts++;
+      if (attempts >= retries) {
+        console.error("All API keys failed for LaTeX generation.");
+        throw new Error("All AI models are currently unavailable for LaTeX generation.");
+      }
+    }
+  }
+  throw new Error("Failed to generate LaTeX content after multiple attempts.");
 }
+// ------------------------------------------
+
+const buildPrompt = (resumeText: string, templateContent: string, templateId: string) => `
+You are a LaTeX resume expert. Convert the resume text into LaTeX using the provided template.
+
+**INSTRUCTIONS:**
+1. Use the template structure exactly - don't add packages or redefine commands
+2. Improve wording: stronger action verbs, consistent tense, fix grammar
+3. Map resume data to template sections appropriately
+4. Output clean, well-formatted LaTeX code
+
+**TEMPLATE (${templateId}.tex):**
+\`\`\`latex
+${templateContent}
 \`\`\`
 
-Begin your analysis now and provide the complete JSON response.
-`;
+**RESUME TEXT:**
+${resumeText}
+
+**REQUIRED JSON OUTPUT FORMAT:**
+You MUST respond with ONLY a valid JSON object in this exact format:
+{
+  "generatedCode": "Complete LaTeX code ready to compile"
+}
+
+Do not include any text before or after the JSON object.`;
 
 type LaTeXRecommendation = {
-  recommendedTemplate: keyof typeof LATEX_TEMPLATES;
-  confidence: number;
-  reasoning: string;
   generatedCode: string;
-  suggestions: string[];
 };
+
+// Map template IDs to their file paths for security and convenience
+const templateFileMap: { [key: string]: string } = {
+  'developer-cv': 'LaTeXTemplates_developer-cv_v1.1/main.tex',
+  'medium-length-professional-cv': 'LaTeXTemplates_medium-length-professional-cv_v3.0/template.tex',
+  'stylish-cv': 'LatexTemplates_stylish/template.tex',
+  'freeman-cv': 'LaTeXTemplates_freeman-cv_v3.0/template.tex',
+  'awesome-resume-cv': 'LaTeXTemplates_awesome-resume-cv_v1.3/resume_cv.tex',
+  'compact-academic-cv': 'LaTeXTemplates_compact-academic-cv_v2.0/main.tex',
+};
+
 
 export default async function handler(
   req: NextApiRequest,
@@ -207,36 +116,100 @@ export default async function handler(
   }
 
   try {
-    const { resumeText } = req.body;
+    const { resumeText, templateId } = req.body;
 
     if (!resumeText) {
       return res.status(400).json({ error: 'Resume text is required' });
     }
+    if (!templateId || typeof templateId !== 'string' || !templateFileMap[templateId]) {
+      return res.status(400).json({ error: 'A valid template ID is required' });
+    }
 
-    const genAI = getAIClient();
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    // --- Read Template File ---
+    const templateFileName = templateFileMap[templateId];
+    const templatePath = path.join(process.cwd(), 'Latex-templates', 'Templates', templateFileName);
+    
+    let templateContent = '';
+    try {
+      templateContent = await fs.readFile(templatePath, 'utf-8');
+    } catch (fileError) {
+      console.error(`❌ Could not read template file: ${templatePath}`, fileError);
+      await logError(`Template file read failed: ${templatePath}`);
+      return res.status(500).json({ error: 'Could not load the selected resume template.' });
+    }
+    // --------------------------
 
-    const prompt = buildPrompt(resumeText);
-
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig,
-        safetySettings
-    });
+    const prompt = buildPrompt(resumeText, templateContent, templateId);
+    
+    console.log(`📝 Calling Gemini API for LaTeX generation with model: ${MODEL_NAME}`);
+    const result = await generateWithFailover(prompt);
 
     const responseJson = result.response.text();
-    const parsedResponse = JSON.parse(responseJson) as LaTeXRecommendation;
+    console.log('🔍 Raw AI Response:', responseJson.substring(0, 200) + '...');
+    
+    // Sometimes the model returns markdown with the json, let's strip it.
+    const sanitizedJson = responseJson.replace(/```json\n/g, '').replace(/\n```/g, '');
+    console.log('🔍 Sanitized JSON:', sanitizedJson.substring(0, 200) + '...');
 
-    console.log('🎉 LaTeX Recommendation generated successfully');
+    let parsedResponse: LaTeXRecommendation;
+    try {
+      parsedResponse = JSON.parse(sanitizedJson) as LaTeXRecommendation;
+      console.log('🔍 Parsed Response Keys:', Object.keys(parsedResponse));
+      console.log('🔍 Generated Code Type:', typeof parsedResponse.generatedCode);
+      console.log('🔍 Generated Code Length:', parsedResponse.generatedCode?.length || 'undefined');
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError);
+      console.error('❌ Failed to parse JSON:', sanitizedJson);
+      await logError(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      return res.status(500).json({ error: 'The AI returned an invalid response format.' });
+    }
+
+    // Validate the response structure
+    if (!parsedResponse.generatedCode) {
+      console.error('❌ Missing generatedCode in response:', parsedResponse);
+      await logError('AI response missing generatedCode property');
+      return res.status(500).json({ error: 'The AI response was incomplete. Please try again.' });
+    }
+
+    // A little bit of post-processing to ensure formatting is good
+    parsedResponse.generatedCode = parsedResponse.generatedCode.replace(/\\ /g, ' ');
+
+    console.log('🎉 Improved LaTeX Recommendation generated successfully');
+    
+    // Track successful LaTeX generation
+    await incrementCounter('totalLatexGenerations');
+    
     return res.status(200).json({ recommendation: parsedResponse });
 
   } catch (error) {
     console.error('❌ Error generating LaTeX recommendation with Gemini API:', error);
+    
+    // Log the error for admin tracking
+    await logError(`LaTeX generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
      if (error instanceof Error) {
         if (error.message.includes('503') || error.message.includes('overloaded')) {
             return res.status(503).json({ error: 'The AI model is currently overloaded. Please try again in a few moments.' });
         }
         if (error.message.includes('JSON')) {
+            // Let's try to repair the JSON
+            const responseText = error.stack || error.toString();
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/); // More robust regex for JSON
+            if (jsonMatch && jsonMatch[0]) {
+                try {
+                    const repairedJson = JSON.parse(jsonMatch[0]);
+                    console.log('🔧 Repaired malformed JSON from Gemini response');
+                    
+                    // Track successful LaTeX generation even if we had to repair JSON
+                    await incrementCounter('totalLatexGenerations');
+                    
+                    return res.status(200).json({ recommendation: repairedJson });
+                } catch (parseError) {
+                     console.error('❌ Failed to repair JSON:', parseError);
+                     await logError(`LaTeX JSON repair failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+                     return res.status(500).json({ error: 'The AI returned an invalid response that could not be repaired.' });
+                }
+            }
             return res.status(500).json({ error: 'The AI returned an invalid response. Please try again.' });
         }
     }
