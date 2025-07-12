@@ -19,11 +19,12 @@ const getAIClient = () => {
 }
 // ----------------------------
 
-const MODEL_NAME = "gemini-1.5-flash-latest";
+const MODEL_NAME = "gemini-2.5-flash";
 
 const generationConfig = {
     responseMimeType: 'application/json',
-    temperature: 0.3, // Lower temperature for more predictable, structured output
+    temperature: 0.4, // Slightly higher for better template understanding
+    maxOutputTokens: 8000, // Increased significantly to handle large LaTeX documents
 };
 
 const safetySettings = [
@@ -67,29 +68,71 @@ async function generateWithFailover(prompt: string, retries = apiKeys.length) {
 // ------------------------------------------
 
 const buildPrompt = (resumeText: string, templateContent: string, templateId: string) => `
-You are a LaTeX resume expert. Convert the resume text into LaTeX using the provided template.
+You are a LaTeX template expert specializing in resume templates. Your task is to generate a COMPLETE, READY-TO-COMPILE LaTeX document.
 
-**INSTRUCTIONS:**
-1. Use the template structure exactly - don't add packages or redefine commands
-2. Improve wording: stronger action verbs, consistent tense, fix grammar
-3. Map resume data to template sections appropriately
-4. Output clean, well-formatted LaTeX code
+**CRITICAL UNDERSTANDING:**
+The template "${templateId}" may use modular structure with \\input{} commands. You must:
+1. Generate a SINGLE, COMPLETE .tex file that compiles without external dependencies
+2. Replace ALL \\input{} commands with the actual content inline
+3. Use the template's command structure (\\cventry, \\cvsection, etc.) exactly as shown
 
-**TEMPLATE (${templateId}.tex):**
+**TEMPLATE STRUCTURE:**
 \`\`\`latex
 ${templateContent}
 \`\`\`
 
-**RESUME TEXT:**
+**USER RESUME DATA:**
 ${resumeText}
 
-**REQUIRED JSON OUTPUT FORMAT:**
-You MUST respond with ONLY a valid JSON object in this exact format:
-{
-  "generatedCode": "Complete LaTeX code ready to compile"
-}
+**YOUR TASK:**
+1. **Analyze the template**: Identify the document structure, required commands, and styling
+2. **Replace modular inputs**: If you see \\input{cv-sections/experience.tex}, replace it with actual experience content using \\cventry commands
+3. **Fill user data**: Use the user's resume information to populate all sections
+4. **Preserve styling**: Keep all the template's formatting, colors, and command structure
+5. **Generate complete file**: Output must be a single .tex file that compiles independently
 
-Do not include any text before or after the JSON object.`;
+**EXAMPLE TRANSFORMATION:**
+If template has: \\input{cv-sections/experience.tex}
+Replace with:
+\`\`\`
+\\cvsection{Experience}
+\\begin{cventries}
+\\cventry
+{Software Engineer} % Job title
+{Tech Company} % Organization  
+{New York, NY} % Location
+{Jan 2020 - Present} % Date(s)
+{
+\\begin{cvitems}
+\\item {Developed scalable web applications using React and Node.js}
+\\item {Improved system performance by 40% through optimization}
+\\end{cvitems}
+}
+\\end{cventries}
+\`\`\`
+
+**SECTION MAPPING:**
+- Experience → Use \\cventry commands with user's work history
+- Education → Use \\cventry commands with user's education
+- Skills → Use \\cvitemwithcomment or \\cvitem commands
+- Personal Info → Fill \\name{}, \\address{}, \\email{}, etc.
+
+**CRITICAL:** Output must be a SINGLE, COMPLETE LaTeX file that compiles without any external file dependencies.
+
+**OPTIMIZATION NOTE:** Keep the LaTeX code clean and concise. Avoid excessive comments or redundant formatting to stay within response limits.
+
+**JSON OUTPUT REQUIREMENTS:**
+- Your response must be VALID JSON
+- Properly escape all backslashes in LaTeX code (use \\\\ for each \\)
+- Properly escape all quotes in LaTeX code (use \\" for each ")
+- Ensure all newlines are represented as \\n
+- Keep the output as concise as possible while maintaining quality
+
+**JSON OUTPUT:**
+{
+  "generatedCode": "Complete, self-contained LaTeX document ready to compile with proper JSON escaping"
+}
+`;
 
 type LaTeXRecommendation = {
   generatedCode: string;
@@ -145,11 +188,20 @@ export default async function handler(
     const result = await generateWithFailover(prompt);
 
     const responseJson = result.response.text();
-    console.log('🔍 Raw AI Response:', responseJson.substring(0, 200) + '...');
+    console.log('🔍 Raw AI Response Length:', responseJson.length);
+    console.log('🔍 Raw AI Response Preview:', responseJson.substring(0, 200) + '...');
+    console.log('🔍 Raw AI Response End:', '...' + responseJson.substring(responseJson.length - 200));
+    
+    // Check for truncation
+    if (!responseJson.trim().endsWith('}')) {
+      console.warn('⚠️  Response appears to be truncated - does not end with }');
+    }
     
     // Sometimes the model returns markdown with the json, let's strip it.
     const sanitizedJson = responseJson.replace(/```json\n/g, '').replace(/\n```/g, '');
-    console.log('🔍 Sanitized JSON:', sanitizedJson.substring(0, 200) + '...');
+    console.log('🔍 Sanitized JSON Length:', sanitizedJson.length);
+    console.log('🔍 Sanitized JSON Preview:', sanitizedJson.substring(0, 200) + '...');
+    console.log('🔍 Sanitized JSON End:', '...' + sanitizedJson.substring(sanitizedJson.length - 200));
 
     let parsedResponse: LaTeXRecommendation;
     try {
@@ -159,9 +211,58 @@ export default async function handler(
       console.log('🔍 Generated Code Length:', parsedResponse.generatedCode?.length || 'undefined');
     } catch (parseError) {
       console.error('❌ JSON Parse Error:', parseError);
-      console.error('❌ Failed to parse JSON:', sanitizedJson);
-      await logError(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-      return res.status(500).json({ error: 'The AI returned an invalid response format.' });
+      console.error('❌ Failed JSON substring (around error):', sanitizedJson.substring(1100, 1200));
+      
+      // Check if this is a truncation issue
+      if (parseError instanceof SyntaxError && parseError.message.includes('Unexpected end of JSON input')) {
+        console.log('🔧 Detected JSON truncation - attempting recovery...');
+        
+        // Try to find the start of the generatedCode content
+        const startMatch = sanitizedJson.match(/"generatedCode"\s*:\s*"/);
+        if (startMatch) {
+          const startIndex = startMatch.index! + startMatch[0].length;
+          const codeContent = sanitizedJson.substring(startIndex);
+          
+          // Find the last complete line before truncation
+          const lines = codeContent.split('\\n');
+          const completeLines = lines.slice(0, -1); // Remove potentially incomplete last line
+          const recoveredCode = completeLines.join('\n')
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, '\\')
+            .replace(/\\t/g, '\t');
+          
+          console.log('🔧 Recovered LaTeX code length:', recoveredCode.length);
+          parsedResponse = { generatedCode: recoveredCode };
+          console.log('🎉 Successfully recovered truncated LaTeX code');
+        } else {
+          await logError(`JSON truncation recovery failed: ${parseError.message}`);
+          return res.status(500).json({ error: 'The AI response was truncated. Please try again.' });
+        }
+      } else {
+        // Try to extract the LaTeX code manually if JSON parsing fails
+        const codeMatch = sanitizedJson.match(/"generatedCode"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        if (codeMatch && codeMatch[1]) {
+          console.log('🔧 Attempting manual LaTeX extraction...');
+          try {
+            // Manually unescape the JSON string
+            const extractedCode = codeMatch[1]
+              .replace(/\\n/g, '\n')
+              .replace(/\\t/g, '\t')
+              .replace(/\\"/g, '"')
+              .replace(/\\\\/g, '\\');
+            
+            parsedResponse = { generatedCode: extractedCode };
+            console.log('🎉 Successfully extracted LaTeX code manually');
+          } catch (extractError) {
+            console.error('❌ Manual extraction failed:', extractError);
+            await logError(`JSON parsing and manual extraction failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+            return res.status(500).json({ error: 'The AI returned an invalid response format that could not be parsed.' });
+          }
+        } else {
+          await logError(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          return res.status(500).json({ error: 'The AI returned an invalid response format.' });
+        }
+      }
     }
 
     // Validate the response structure
@@ -170,6 +271,22 @@ export default async function handler(
       await logError('AI response missing generatedCode property');
       return res.status(500).json({ error: 'The AI response was incomplete. Please try again.' });
     }
+
+    // Validate that template structure is preserved
+    const originalTemplateCommands = templateContent.match(/\\[a-zA-Z]+(?=\{)/g) || [];
+    const generatedCommands = parsedResponse.generatedCode.match(/\\[a-zA-Z]+(?=\{)/g) || [];
+    
+    console.log('🔍 Original template commands:', originalTemplateCommands.slice(0, 10));
+    console.log('🔍 Generated commands:', generatedCommands.slice(0, 10));
+    
+    // Check if major template commands are preserved
+    const majorCommands = ['\\documentclass', '\\name', '\\address', '\\position', '\\cventry', '\\section'];
+    const preservedCommands = majorCommands.filter(cmd => 
+      originalTemplateCommands.some(origCmd => origCmd === cmd) && 
+      generatedCommands.some(genCmd => genCmd === cmd)
+    );
+    
+    console.log('🔍 Preserved major commands:', preservedCommands);
 
     // A little bit of post-processing to ensure formatting is good
     parsedResponse.generatedCode = parsedResponse.generatedCode.replace(/\\ /g, ' ');
