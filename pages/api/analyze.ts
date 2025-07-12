@@ -27,7 +27,7 @@ const getAIClient = () => {
 }
 // ----------------------------
 
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-2.5-pro";
 
 // Define the expected JSON structure for the AI's response
 const jsonOutputSchema = {

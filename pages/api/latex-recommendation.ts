@@ -290,6 +290,7 @@ export default async function handler(
 
     // A little bit of post-processing to ensure formatting is good
     parsedResponse.generatedCode = parsedResponse.generatedCode.replace(/\\ /g, ' ');
+    parsedResponse.generatedCode = parsedResponse.generatedCode.replace(/\\t/g, '');
 
     console.log('🎉 Improved LaTeX Recommendation generated successfully');
     
