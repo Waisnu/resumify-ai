@@ -128,7 +128,7 @@ const Index = () => {
   const features = [
     {
       icon: Zap,
-      title: "10-Second AI Analysis",
+      title: "30-Second AI Analysis",
       description: "Get instant, expert-level feedback faster than you can read your resume",
       color: "text-yellow-400",
       stat: "10x faster than human review"
@@ -295,7 +295,7 @@ const Index = () => {
                 <CardHeader>
                   <CardTitle className="text-2xl font.bold text-slate-50 flex items-center">
                     <Zap className="w-6 h-6 mr-3 text-primary" />
-                    Get Your Edge in 10 Seconds
+                    Get Your Edge in 30 Seconds
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-2">

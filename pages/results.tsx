@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import {
   ArrowLeft, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp,
   Briefcase, Zap, Lightbulb, Mail, GraduationCap, Palette, FileText, User, Code, Copy, ExternalLink, Sparkles,
-  Star, Eye // Removed Beer icon
+  Star, Eye, Flame // Removed Beer icon, added Flame
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -23,6 +23,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import Image from 'next/image'
+import { cn } from '@/lib/utils'
 
 
 type Suggestion = {
@@ -101,6 +102,30 @@ const templates = [
   }
 ];
 // ----------------------------
+
+// --- Animation Variants ---
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.15,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 120,
+    },
+  },
+};
+// -------------------------
 
 
 const Results = () => {
@@ -379,14 +404,18 @@ const Results = () => {
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="details">Detailed Feedback</TabsTrigger>
               <TabsTrigger 
                 value="latex" 
                 disabled={analysisResult.isValidResume === false}
-                className={analysisResult.isValidResume === false ? 'opacity-50 cursor-not-allowed' : ''}
+                className={cn(
+                  'transition-all duration-300',
+                  { 'opacity-50 cursor-not-allowed': analysisResult.isValidResume === false },
+                )}
               >
+                <Flame className="mr-2 h-4 w-4" />
                 AI Resume Generator
               </TabsTrigger>
             </TabsList>
@@ -412,8 +441,13 @@ const Results = () => {
             )}
 
             <TabsContent value="overview" className="mt-8">
-              <div className="grid md:grid-cols-3 gap-8 items-start">
-                <div className="md:col-span-1 flex flex-col gap-8">
+              <motion.div 
+                className="grid md:grid-cols-3 gap-8 items-start"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <motion.div className="md:col-span-1 flex flex-col gap-8" variants={itemVariants}>
                   <Card className="p-6 text-center bg-slate-900 border border-slate-800 flex-1">
                     <motion.div
                       initial={{ scale: 0.5, opacity: 0 }}
@@ -445,9 +479,9 @@ const Results = () => {
                       </div>
                     </div>
                   </Card>
-                </div>
+                </motion.div>
 
-                <div className="md:col-span-2 flex flex-col gap-8 h-full">
+                <motion.div className="md:col-span-2 flex flex-col gap-8 h-full" variants={itemVariants}>
                    <Card className="p-6 bg-slate-900 border border-slate-800 flex-1">
                     <h3 className="text-lg font-semibold mb-4">Summary</h3>
                     <div className="grid sm:grid-cols-2 gap-6">
@@ -489,16 +523,21 @@ const Results = () => {
                       </blockquote>
                     </Card>
                   )}
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             </TabsContent>
 
             <TabsContent value="details" className="mt-8">
               <Card className="p-6 bg-slate-900 border border-slate-800">
                 <h3 className="text-lg font-semibold mb-4">Detailed Feedback</h3>
-                <div className="space-y-4">
+                <motion.div 
+                  className="space-y-4"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
                   {sortedCategories.map((category) => (
-                    <div key={category} className="border-b border-slate-800 last:border-b-0 pb-4">
+                    <motion.div key={category} variants={itemVariants} className="border-b border-slate-800 last:border-b-0 pb-4">
                       <button
                         onClick={() => toggleCategory(category)}
                         className="w-full flex justify-between items-center py-2 text-left font-semibold text-lg"
@@ -546,9 +585,9 @@ const Results = () => {
                           </motion.div>
                         )}
                       </AnimatePresence>
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               </Card>
             </TabsContent>
 

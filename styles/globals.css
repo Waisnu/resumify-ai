@@ -129,4 +129,22 @@
   -webkit-backdrop-filter: blur(12px);
   border-width: 1px;
   border-color: hsl(var(--border) / 0.2);
+}
+
+@keyframes rotate {
+  to {
+    --angle: 360deg;
+  }
+}
+
+.glowing-border {
+  --border-size: 1px;
+  --angle: 0deg;
+  
+  position: relative;
+  background:
+    linear-gradient(from var(--angle), hsl(var(--primary) / 0.8), hsl(var(--accent) / 0.6), hsl(var(--primary) / 0.8)) border-box;
+  
+  border: var(--border-size) solid transparent;
+  animation: rotate 4s linear infinite;
 } 

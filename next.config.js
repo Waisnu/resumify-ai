@@ -11,14 +11,7 @@ const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   // Optimize for production
-  swcMinify: true,
-  // API routes optimization
-  api: {
-    bodyParser: {
-      sizeLimit: '5mb', // Match the file upload limit
-    },
-    responseLimit: false,
-  },
+
   // Headers for security
   async headers() {
     return [

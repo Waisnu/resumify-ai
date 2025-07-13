@@ -150,6 +150,41 @@ const templateFileMap: { [key: string]: string } = {
   'compact-academic-cv': 'LaTeXTemplates_compact-academic-cv_v2.0/main.tex',
 };
 
+const inlineImports = async (filePath: string, content: string): Promise<string> => {
+  const importRegex = /\\input\{(.+?)\}/g;
+  let inlinedContent = content;
+  const fileDir = path.dirname(filePath);
+
+  // Use Promise.all to handle multiple imports concurrently
+  const promises = [];
+  const matches = [...content.matchAll(importRegex)];
+
+  for (const match of matches) {
+    const importPath = match[1];
+    // Ensure the path ends with .tex for consistency
+    const relativePath = importPath.endsWith('.tex') ? importPath : `${importPath}.tex`;
+    const absolutePath = path.resolve(fileDir, relativePath);
+    
+    promises.push(
+      (async () => {
+        try {
+          const importedContent = await fs.readFile(absolutePath, 'utf-8');
+          // Recursively inline imports within the imported file
+          const recursivelyInlined = await inlineImports(absolutePath, importedContent);
+          // Replace the original \input command with the processed content
+          inlinedContent = inlinedContent.replace(match[0], recursivelyInlined);
+        } catch (error) {
+          console.warn(`⚠️ Could not read or inline import: ${absolutePath}. It will be left as is in the template.`);
+          await logError(`LaTeX import failed for template ${filePath}: could not read ${absolutePath}`);
+        }
+      })()
+    );
+  }
+
+  await Promise.all(promises);
+  return inlinedContent;
+};
+
 
 export default async function handler(
   req: NextApiRequest,
@@ -184,7 +219,11 @@ export default async function handler(
     }
     // --------------------------
 
-    const prompt = buildPrompt(resumeText, templateContent, templateId);
+    // --- Inline LaTeX Imports ---
+    const inlinedTemplateContent = await inlineImports(templatePath, templateContent);
+    // --------------------------
+
+    const prompt = buildPrompt(resumeText, inlinedTemplateContent, templateId);
     
     console.log(`📝 Calling Gemini API for LaTeX generation with model: ${MODEL_NAME}`);
     const result = await generateWithFailover(prompt);
@@ -240,7 +279,7 @@ export default async function handler(
     console.log('🔍 Generated Code Preview:', generatedCode.substring(0, 300) + '...');
 
     // Validate that template structure is preserved
-    const originalTemplateCommands = templateContent.match(/\\[a-zA-Z]+(?=\{)/g) || [];
+    const originalTemplateCommands = inlinedTemplateContent.match(/\\[a-zA-Z]+(?=\{)/g) || [];
     const generatedCommands = generatedCode.match(/\\[a-zA-Z]+(?=\{)/g) || [];
     
     console.log('🔍 Original template commands:', originalTemplateCommands.slice(0, 10));
@@ -262,7 +301,7 @@ export default async function handler(
     console.log('🎉 Improved LaTeX Recommendation generated successfully');
     
     // Track token usage for monitoring
-    const estimatedTokens = Math.ceil((resumeText.length + templateContent.length + generatedCode.length) / 4);
+    const estimatedTokens = Math.ceil((resumeText.length + inlinedTemplateContent.length + generatedCode.length) / 4);
     await trackTokenUsage('latex', estimatedTokens, MODEL_NAME);
     
     // Track successful LaTeX generation

@@ -1,6 +1,6 @@
 import React from 'react'
-import { motion } from 'framer-motion'
-import { Star, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { motion, Variants } from 'framer-motion'
+import { Star, StarHalf, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface RatingDisplayProps {
@@ -12,37 +12,37 @@ interface RatingDisplayProps {
 
 const sentimentConfig = {
   excellent: {
-    color: 'text-rating-excellent',
-    bgColor: 'bg-rating-excellent/10',
-    borderColor: 'border-rating-excellent/30',
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/20',
     icon: TrendingUp,
     label: 'Excellent',
-    description: 'Outstanding resume quality'
+    description: 'Outstanding resume quality',
   },
   good: {
-    color: 'text-rating-good',
-    bgColor: 'bg-rating-good/10',
-    borderColor: 'border-rating-good/30',
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10',
+    borderColor: 'border-blue-500/20',
     icon: TrendingUp,
     label: 'Good',
-    description: 'Strong resume with minor improvements needed'
+    description: 'Strong resume with minor improvements needed',
   },
   fair: {
-    color: 'text-rating-fair',
-    bgColor: 'bg-rating-fair/10',
-    borderColor: 'border-rating-fair/30',
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10',
+    borderColor: 'border-amber-500/20',
     icon: Minus,
     label: 'Fair',
-    description: 'Decent resume with room for improvement'
+    description: 'Decent resume with room for improvement',
   },
   poor: {
-    color: 'text-rating-poor',
-    bgColor: 'bg-rating-poor/10',
-    borderColor: 'border-rating-poor/30',
+    color: 'text-red-500',
+    bgColor: 'bg-red-500/10',
+    borderColor: 'border-red-500/20',
     icon: TrendingDown,
     label: 'Needs Work',
-    description: 'Significant improvements required'
-  }
+    description: 'Significant improvements required',
+  },
 }
 
 export function RatingDisplay({ 
@@ -57,109 +57,82 @@ export function RatingDisplay({
     return null
   }
 
-  const Icon = config.icon
   const filledStars = Math.floor(score)
-  const hasHalfStar = score % 1 >= 0.5
+  const hasHalfStar = score % 1 >= 0.5;
+
+  const animationProps = (delay = 0) => showAnimation ? {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    transition: { delay: delay * 0.2, type: 'spring' as const, stiffness: 150, damping: 20 }
+  } : {};
+
+  const starVariants: Variants = {
+    hidden: { scale: 0, opacity: 0 },
+    visible: { scale: 1, opacity: 1 },
+  };
 
   return (
-    <motion.div
+    <div
       className={cn(
-        "p-6 rounded-2xl border backdrop-glass",
+        "w-full text-center p-6 rounded-lg",
         config.bgColor,
         config.borderColor,
+        'border',
         className
       )}
-      initial={showAnimation ? { opacity: 0, scale: 0.9 } : false}
-      animate={showAnimation ? { opacity: 1, scale: 1 } : false}
-      transition={{ duration: 0.5 }}
     >
-      <div className="text-center space-y-4">
-        {/* Score Circle */}
-        <motion.div 
-          className="relative mx-auto w-24 h-24"
-          initial={showAnimation ? { scale: 0 } : false}
-          animate={showAnimation ? { scale: 1 } : false}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-        >
-          <svg className="w-24 h-24 transform -rotate-90">
-            <circle
-              cx="48"
-              cy="48"
-              r="40"
-              stroke="currentColor"
-              strokeWidth="8"
-              fill="transparent"
-              className="text-muted/20"
-            />
-            <motion.circle
-              cx="48"
-              cy="48"
-              r="40"
-              stroke="currentColor"
-              strokeWidth="8"
-              fill="transparent"
-              strokeDasharray={`${2 * Math.PI * 40}`}
-              className={config.color}
-              initial={{ strokeDashoffset: 2 * Math.PI * 40 }}
-              animate={{ strokeDashoffset: 2 * Math.PI * 40 * (1 - score / 5) }}
-              transition={{ delay: 0.5, duration: 1.5, ease: "easeOut" }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <motion.span 
-              className={cn("text-2xl font-bold", config.color)}
-              initial={showAnimation ? { opacity: 0 } : false}
-              animate={showAnimation ? { opacity: 1 } : false}
-              transition={{ delay: 0.8 }}
-            >
-              {Number(score).toFixed(1)}
-            </motion.span>
-          </div>
-        </motion.div>
+      <motion.div {...animationProps(1)}>
+        <h3 className="text-lg font-semibold text-slate-200">Overall Score</h3>
+      </motion.div>
+      
+      <motion.div 
+        className="my-4 text-6xl font-bold"
+        {...animationProps(2)}
+      >
+        <span className={config.color}>{Number(score).toFixed(1)}</span>
+        <span className="text-3xl text-slate-500">/5</span>
+      </motion.div>
 
-        {/* Stars */}
-        <motion.div 
-          className="flex justify-center space-x-1"
-          initial={showAnimation ? { opacity: 0, y: 10 } : false}
-          animate={showAnimation ? { opacity: 1, y: 0 } : false}
-          transition={{ delay: 1, duration: 0.5 }}
-        >
-          {[...Array(5)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={showAnimation ? { scale: 0, rotate: -180 } : false}
-              animate={showAnimation ? { scale: 1, rotate: 0 } : false}
-              transition={{ 
-                delay: 1.2 + i * 0.1, 
-                type: "spring", 
-                stiffness: 200 
-              }}
-            >
-              <Star
-                className={cn(
-                  "h-6 w-6",
-                  i < filledStars || (i === filledStars && hasHalfStar)
-                    ? "text-yellow-400 fill-yellow-400"
-                    : "text-slate-600"
-                )}
-              />
+      <motion.div 
+        className="flex justify-center space-x-1"
+        initial="hidden"
+        animate="visible"
+        transition={{ staggerChildren: 0.1, delayChildren: 0.5 }}
+      >
+        {[...Array(5)].map((_, i) => {
+          const starProps = {
+            key: i,
+            className: "h-7 w-7",
+          };
+          if (i < filledStars) {
+            return (
+              <motion.div variants={starVariants}>
+                <Star {...starProps} className={cn(starProps.className, "text-amber-400 fill-amber-400")} />
+              </motion.div>
+            );
+          }
+          if (i === filledStars && hasHalfStar) {
+            return (
+              <motion.div variants={starVariants}>
+                <StarHalf {...starProps} className={cn(starProps.className, "text-amber-400 fill-amber-400")} />
+              </motion.div>
+            );
+          }
+          return (
+            <motion.div variants={starVariants}>
+              <Star {...starProps} className={cn(starProps.className, "text-slate-600")} />
             </motion.div>
-          ))}
-        </motion.div>
+          );
+        })}
+      </motion.div>
 
-        {/* Sentiment */}
-        <motion.div
-          className="space-y-2"
-          initial={showAnimation ? { opacity: 0, y: 10 } : false}
-          animate={showAnimation ? { opacity: 1, y: 0 } : false}
-          transition={{ delay: 1.5, duration: 0.5 }}
-        >
-          <div className={cn("flex items-center justify-center space-x-2")}>
-            <span className={cn("font-semibold text-lg", config.color)}>{config.label}</span>
-          </div>
-          <p className="text-sm text-slate-400 max-w-xs mx-auto">{config.description}</p>
-        </motion.div>
-      </div>
-    </motion.div>
+      <motion.div className="mt-6" {...animationProps(4)}>
+        <div className={cn("inline-flex items-center gap-2 font-semibold text-lg py-1 px-3 rounded-full", config.bgColor, config.color)}>
+          <config.icon className="h-5 w-5" />
+          <span>{config.label}</span>
+        </div>
+        <p className="text-sm text-slate-400 mt-2">{config.description}</p>
+      </motion.div>
+    </div>
   )
 }

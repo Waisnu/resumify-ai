@@ -54,7 +54,7 @@ const jsonOutputSchema = {
 
 const generationConfig = {
     responseMimeType: 'application/json',
-    temperature: 0.7,
+    temperature: 0.2,
 };
 
 // Safety settings to reduce the likelihood of getting blocked responses.
@@ -127,6 +127,13 @@ Before analyzing, determine if this is actually a resume/CV. A valid resume shou
 - Professional formatting and structure
 
 If it's NOT a resume (e.g., random text, stories, recipes, etc.), set isValidResume to false.
+
+**SCORING RUBRIC (1-5 SCALE):**
+- **1.0-1.9 (Poor):** Missing critical sections (like contact info or experience). Contains major spelling/grammar errors. Unprofessional tone or formatting. Fails to show qualifications.
+- **2.0-2.9 (Fair):** Has basic sections but they are sparse. Lacks detail and impact. Uses weak, passive language. Generic and not tailored. Some formatting issues.
+- **3.0-3.9 (Good):** A solid, competent resume. All sections are present and well-filled. Uses action verbs and some quantified achievements. Mostly free of errors. Professional formatting.
+- **4.0-4.5 (Excellent):** A strong, compelling resume. Clearly shows the candidate's value with strong, quantified achievements. Tailored for a specific industry or role. Excellent, modern formatting.
+- **4.6-5.0 (Exceptional):** An outstanding, top-tier resume. Sets a new standard. Flawless execution in content, formatting, and impact. A guaranteed interview call.
 
 **ANALYSIS REQUIREMENTS:**
 1. **Content & Impact**: Quantified achievements, action verbs, clear impact
