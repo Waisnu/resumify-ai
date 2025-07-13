@@ -19,12 +19,12 @@ const getAIClient = () => {
 }
 // ----------------------------
 
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-2.5-pro";
 
 const generationConfig = {
-    responseMimeType: 'application/json',
+    responseMimeType: 'text/plain',
     temperature: 0.4, // Slightly higher for better template understanding
-    maxOutputTokens: 8000, // Increased significantly to handle large LaTeX documents
+    maxOutputTokens: 16000, // Doubled to handle large LaTeX documents without JSON escaping overhead
 };
 
 const safetySettings = [
@@ -119,19 +119,21 @@ Replace with:
 
 **CRITICAL:** Output must be a SINGLE, COMPLETE LaTeX file that compiles without any external file dependencies.
 
-**OPTIMIZATION NOTE:** Keep the LaTeX code clean and concise. Avoid excessive comments or redundant formatting to stay within response limits.
+**OPTIMIZATION NOTE:** Keep the LaTeX code clean and concise while maintaining professional quality.
 
-**JSON OUTPUT REQUIREMENTS:**
-- Your response must be VALID JSON
-- Properly escape all backslashes in LaTeX code (use \\\\ for each \\)
-- Properly escape all quotes in LaTeX code (use \\" for each ")
-- Ensure all newlines are represented as \\n
-- Keep the output as concise as possible while maintaining quality
+**OUTPUT FORMAT:**
+Generate ONLY the complete LaTeX document. Do not include any JSON formatting, explanations, or additional text.
+Start directly with the LaTeX code (e.g., %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%...)
 
-**JSON OUTPUT:**
-{
-  "generatedCode": "Complete, self-contained LaTeX document ready to compile with proper JSON escaping"
-}
+**EXAMPLE OUTPUT:**
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Medium Length Professional CV
+% LaTeX Template
+\\documentclass[11pt]{resume}
+\\usepackage{ebgaramond}
+\\name{John Doe}
+...
+\\end{document}
 `;
 
 type LaTeXRecommendation = {
@@ -192,89 +194,28 @@ export default async function handler(
     console.log('🔍 Raw AI Response Preview:', responseJson.substring(0, 200) + '...');
     console.log('🔍 Raw AI Response End:', '...' + responseJson.substring(responseJson.length - 200));
     
-    // Check for truncation
-    if (!responseJson.trim().endsWith('}')) {
-      console.warn('⚠️  Response appears to be truncated - does not end with }');
-    }
+    // Simple plain text processing - no JSON parsing needed
+    let generatedCode = responseJson.trim();
     
-    // Sometimes the model returns markdown with the json, let's strip it.
-    const sanitizedJson = responseJson.replace(/```json\n/g, '').replace(/\n```/g, '');
-    console.log('🔍 Sanitized JSON Length:', sanitizedJson.length);
-    console.log('🔍 Sanitized JSON Preview:', sanitizedJson.substring(0, 200) + '...');
-    console.log('🔍 Sanitized JSON End:', '...' + sanitizedJson.substring(sanitizedJson.length - 200));
-
-    let parsedResponse: LaTeXRecommendation;
-    try {
-      parsedResponse = JSON.parse(sanitizedJson) as LaTeXRecommendation;
-      console.log('🔍 Parsed Response Keys:', Object.keys(parsedResponse));
-      console.log('🔍 Generated Code Type:', typeof parsedResponse.generatedCode);
-      console.log('🔍 Generated Code Length:', parsedResponse.generatedCode?.length || 'undefined');
-    } catch (parseError) {
-      console.error('❌ JSON Parse Error:', parseError);
-      console.error('❌ Failed JSON substring (around error):', sanitizedJson.substring(1100, 1200));
-      
-      // Check if this is a truncation issue
-      if (parseError instanceof SyntaxError && parseError.message.includes('Unexpected end of JSON input')) {
-        console.log('🔧 Detected JSON truncation - attempting recovery...');
-        
-        // Try to find the start of the generatedCode content
-        const startMatch = sanitizedJson.match(/"generatedCode"\s*:\s*"/);
-        if (startMatch) {
-          const startIndex = startMatch.index! + startMatch[0].length;
-          const codeContent = sanitizedJson.substring(startIndex);
-          
-          // Find the last complete line before truncation
-          const lines = codeContent.split('\\n');
-          const completeLines = lines.slice(0, -1); // Remove potentially incomplete last line
-          const recoveredCode = completeLines.join('\n')
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\')
-            .replace(/\\t/g, '\t');
-          
-          console.log('🔧 Recovered LaTeX code length:', recoveredCode.length);
-          parsedResponse = { generatedCode: recoveredCode };
-          console.log('🎉 Successfully recovered truncated LaTeX code');
-        } else {
-          await logError(`JSON truncation recovery failed: ${parseError.message}`);
-          return res.status(500).json({ error: 'The AI response was truncated. Please try again.' });
-        }
-      } else {
-        // Try to extract the LaTeX code manually if JSON parsing fails
-        const codeMatch = sanitizedJson.match(/"generatedCode"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-        if (codeMatch && codeMatch[1]) {
-          console.log('🔧 Attempting manual LaTeX extraction...');
-          try {
-            // Manually unescape the JSON string
-            const extractedCode = codeMatch[1]
-              .replace(/\\n/g, '\n')
-              .replace(/\\t/g, '\t')
-              .replace(/\\"/g, '"')
-              .replace(/\\\\/g, '\\');
-            
-            parsedResponse = { generatedCode: extractedCode };
-            console.log('🎉 Successfully extracted LaTeX code manually');
-          } catch (extractError) {
-            console.error('❌ Manual extraction failed:', extractError);
-            await logError(`JSON parsing and manual extraction failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-            return res.status(500).json({ error: 'The AI returned an invalid response format that could not be parsed.' });
-          }
-        } else {
-          await logError(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-          return res.status(500).json({ error: 'The AI returned an invalid response format.' });
-        }
-      }
+    // Remove any markdown code blocks if present
+    generatedCode = generatedCode.replace(/```latex\n/g, '').replace(/```\n/g, '').replace(/```/g, '');
+    
+    // Basic validation - ensure it looks like LaTeX
+    if (!generatedCode.includes('\\documentclass') || !generatedCode.includes('\\begin{document}')) {
+      console.error('❌ Generated code does not appear to be valid LaTeX');
+      await logError('AI response missing essential LaTeX structure');
+      return res.status(500).json({ error: 'The AI generated invalid LaTeX code. Please try again.' });
     }
 
-    // Validate the response structure
-    if (!parsedResponse.generatedCode) {
-      console.error('❌ Missing generatedCode in response:', parsedResponse);
-      await logError('AI response missing generatedCode property');
-      return res.status(500).json({ error: 'The AI response was incomplete. Please try again.' });
-    }
+    // Create response object
+    const parsedResponse: LaTeXRecommendation = { generatedCode };
+    
+    console.log('🔍 Generated Code Length:', generatedCode.length);
+    console.log('🔍 Generated Code Preview:', generatedCode.substring(0, 300) + '...');
 
     // Validate that template structure is preserved
     const originalTemplateCommands = templateContent.match(/\\[a-zA-Z]+(?=\{)/g) || [];
-    const generatedCommands = parsedResponse.generatedCode.match(/\\[a-zA-Z]+(?=\{)/g) || [];
+    const generatedCommands = generatedCode.match(/\\[a-zA-Z]+(?=\{)/g) || [];
     
     console.log('🔍 Original template commands:', originalTemplateCommands.slice(0, 10));
     console.log('🔍 Generated commands:', generatedCommands.slice(0, 10));
@@ -305,32 +246,15 @@ export default async function handler(
     // Log the error for admin tracking
     await logError(`LaTeX generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     
-     if (error instanceof Error) {
-        if (error.message.includes('503') || error.message.includes('overloaded')) {
-            return res.status(503).json({ error: 'The AI model is currently overloaded. Please try again in a few moments.' });
-        }
-        if (error.message.includes('JSON')) {
-            // Let's try to repair the JSON
-            const responseText = error.stack || error.toString();
-            const jsonMatch = responseText.match(/\{[\s\S]*\}/); // More robust regex for JSON
-            if (jsonMatch && jsonMatch[0]) {
-                try {
-                    const repairedJson = JSON.parse(jsonMatch[0]);
-                    console.log('🔧 Repaired malformed JSON from Gemini response');
-                    
-                    // Track successful LaTeX generation even if we had to repair JSON
-                    await incrementCounter('totalLatexGenerations');
-                    
-                    return res.status(200).json({ recommendation: repairedJson });
-                } catch (parseError) {
-                     console.error('❌ Failed to repair JSON:', parseError);
-                     await logError(`LaTeX JSON repair failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-                     return res.status(500).json({ error: 'The AI returned an invalid response that could not be repaired.' });
-                }
-            }
-            return res.status(500).json({ error: 'The AI returned an invalid response. Please try again.' });
-        }
+    if (error instanceof Error) {
+      if (error.message.includes('503') || error.message.includes('overloaded')) {
+        return res.status(503).json({ error: 'The AI model is currently overloaded. Please try again in a few moments.' });
+      }
+      if (error.message.includes('unavailable')) {
+        return res.status(503).json({ error: 'The AI service is temporarily unavailable. Please try again later.' });
+      }
     }
+    
     return res.status(500).json({ error: 'Failed to generate recommendation due to an unexpected error.' });
   }
 } 

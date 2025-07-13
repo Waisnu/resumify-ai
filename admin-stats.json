@@ -1,8 +1,9 @@
 {
-  "totalResumes": 6,
-  "totalAnalyses": 5,
-  "totalLatexGenerations": 5,
+  "totalResumes": 13,
+  "totalAnalyses": 12,
+  "totalLatexGenerations": 9,
   "recentErrors": [
+    "2025-07-13 12:42:53: LaTeX Gen API Key #1 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: fetch failed",
     "2025-07-12T20:30:29.329Z: Analysis failed: All AI models are currently unavailable. Please try again later.",
     "2025-07-12T20:30:29.231Z: API Key #3 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-latest:generateContent: [404 Not Found] models/gemini-2.5-pro-latest is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
     "2025-07-12T20:30:28.076Z: API Key #2 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-latest:generateContent: fetch failed",
@@ -12,5 +13,5 @@
     "2025-07-12T18:43:54.822Z: JSON parsing failed: Unexpected token \t in JSON at position 1113",
     "2025-07-12T18:33:30.737Z: LaTeX generation failed: Cannot read properties of undefined (reading 'replace')"
   ],
-  "lastUpdated": "2025-07-12T20:38:19.671Z"
+  "lastUpdated": "2025-07-13T04:49:00.564Z"
 }

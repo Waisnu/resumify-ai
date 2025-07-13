@@ -58,8 +58,20 @@ export async function incrementCounter(counter: 'totalResumes' | 'totalAnalyses'
 export async function logError(error: string): Promise<void> {
   try {
     const stats = await getStats();
-    stats.recentErrors.unshift(`${new Date().toISOString()}: ${error}`);
-    
+    // Let's use a more user-friendly date format, e.g., 'YYYY-MM-DD HH:mm:ss'
+    // We'll use toLocaleString for a readable local time (no timezone info)
+    const now = new Date();
+    const formattedTime = now.toLocaleString('en-CA', { // 'en-CA' gives YYYY-MM-DD format
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(',', '');
+    stats.recentErrors.unshift(`${formattedTime}: ${error}`);
+
     // Keep only the last 50 errors
     if (stats.recentErrors.length > 50) {
       stats.recentErrors = stats.recentErrors.slice(0, 50);
