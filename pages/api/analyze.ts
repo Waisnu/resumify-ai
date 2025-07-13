@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { incrementCounter, logError } from '@/lib/admin-stats';
+import { incrementCounter, logError, trackTokenUsage } from '@/lib/admin-stats';
 
 // --- Smart API Key Manager ---
 const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').map(key => key.trim()).filter(Boolean);
@@ -33,6 +33,7 @@ const MODEL_NAME = "gemini-2.5-pro";
 const jsonOutputSchema = {
     score: "number (1-5, e.g., 4.2)",
     sentiment: "'poor' | 'fair' | 'good' | 'excellent'",
+    isValidResume: "boolean (true if this is actually a resume/CV, false otherwise)",
     suggestions: [
         {
             type: "'improvement' | 'success' | 'warning' | 'error'",
@@ -118,6 +119,15 @@ async function generateWithFailover(prompt: string, retries = apiKeys.length) {
 const buildPrompt = (resumeText: string) => `
 You are an expert resume analyst. Analyze this resume and provide structured feedback.
 
+**FIRST: RESUME VALIDATION**
+Before analyzing, determine if this is actually a resume/CV. A valid resume should contain:
+- Professional contact information (name, email, phone)
+- Work experience OR education section
+- Skills or qualifications relevant to employment
+- Professional formatting and structure
+
+If it's NOT a resume (e.g., random text, stories, recipes, etc.), set isValidResume to false.
+
 **ANALYSIS REQUIREMENTS:**
 1. **Content & Impact**: Quantified achievements, action verbs, clear impact
 2. **Formatting**: Scannable layout, consistent dates, professional presentation  
@@ -137,6 +147,7 @@ ${JSON.stringify(
   {
     score: "number (1-5)",
     sentiment: "'poor' | 'fair' | 'good' | 'excellent'",
+    isValidResume: "boolean (true if this is actually a resume/CV, false otherwise)",
     suggestions: [
       {
         type: "'improvement' | 'success' | 'warning' | 'error'",
@@ -191,6 +202,10 @@ export default async function handler(
     const parsedResponse = JSON.parse(responseJson);
 
     console.log('🎉 Analysis response generated successfully');
+    
+    // Track token usage for monitoring
+    const estimatedTokens = Math.ceil((text.length + responseJson.length) / 4); // Rough estimate: 4 chars per token
+    await trackTokenUsage('analysis', estimatedTokens, MODEL_NAME);
     
     // Track successful analysis
     await incrementCounter('totalAnalyses');

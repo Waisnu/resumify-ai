@@ -19,6 +19,24 @@ interface AdminStats {
   apiKeyHealth: { [key: string]: 'healthy' | 'unhealthy' | 'checking' };
   recentErrors: string[];
   lastUpdated: string;
+  // New token tracking fields
+  dailyTokenUsage: {
+    date: string;
+    analysisTokens: number;
+    latexTokens: number;
+    totalTokens: number;
+  };
+  modelInfo: {
+    analysisModel: string;
+    latexModel: string;
+    dailyLimit: number;
+    requestsToday: number;
+  };
+  sessionStats: {
+    tokensUsed: number;
+    requestsCount: number;
+    lastSessionTime: string;
+  };
 }
 
 const AdminPage = () => {
@@ -28,6 +46,12 @@ const AdminPage = () => {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [dailyCapacity, setDailyCapacity] = useState<{
+    remainingRequests: number;
+    estimatedAnalyses: number;
+    estimatedLatexGenerations: number;
+    percentageUsed: number;
+  } | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -131,6 +155,17 @@ const AdminPage = () => {
       await checkApiKeyHealth(currentStats)
       
       setStats(currentStats)
+
+      // Calculate daily capacity
+      try {
+        const capacityResponse = await fetch('/api/admin/capacity')
+        if (capacityResponse.ok) {
+          const capacity = await capacityResponse.json()
+          setDailyCapacity(capacity)
+        }
+      } catch (error) {
+        console.error('Failed to load capacity data:', error)
+      }
     } catch (error) {
       console.error('Error loading stats:', error)
       toast({
@@ -274,22 +309,122 @@ const AdminPage = () => {
 
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-300">API Health</CardTitle>
-                <Key className="h-4 w-4 text-slate-400" />
+                <CardTitle className="text-sm font-medium text-slate-300">Daily Usage</CardTitle>
+                <TrendingUp className="h-4 w-4 text-slate-400" />
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2">
-                  {Object.values(stats.apiKeyHealth).every(status => status === 'healthy') ? (
-                    <>
-                      <CheckCircle className="h-5 w-5 text-green-400" />
-                      <span className="text-green-400 font-medium">Healthy</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="h-5 w-5 text-amber-400" />
-                      <span className="text-amber-400 font-medium">Issues</span>
-                    </>
-                  )}
+                <div className="text-2xl font-bold text-slate-50">{stats.modelInfo.requestsToday}</div>
+                <p className="text-xs text-slate-400">of {stats.modelInfo.dailyLimit} requests</p>
+                {dailyCapacity && (
+                  <div className="mt-2 w-full bg-slate-800 rounded-full h-1.5">
+                    <div 
+                      className="h-full bg-gradient-to-r from-green-400 to-amber-400 rounded-full"
+                      style={{ width: `${Math.min(dailyCapacity.percentageUsed, 100)}%` }}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Enhanced Information Cards */}
+        {stats && dailyCapacity && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {/* Daily Capacity Card */}
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-50">
+                  <TrendingUp className="h-5 w-5" />
+                  Daily Capacity
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Remaining Requests</span>
+                    <span className="text-slate-200 font-medium">{dailyCapacity.remainingRequests}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Est. Analyses</span>
+                    <span className="text-green-400 font-medium">{dailyCapacity.estimatedAnalyses}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Est. LaTeX Gen</span>
+                    <span className="text-blue-400 font-medium">{dailyCapacity.estimatedLatexGenerations}</span>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Usage Today</span>
+                    <span>{dailyCapacity.percentageUsed.toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-2">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        dailyCapacity.percentageUsed > 80 ? 'bg-red-400' :
+                        dailyCapacity.percentageUsed > 60 ? 'bg-amber-400' : 'bg-green-400'
+                      }`}
+                      style={{ width: `${Math.min(dailyCapacity.percentageUsed, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Token Usage Card */}
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-50">
+                  <Zap className="h-5 w-5" />
+                  Token Usage Today
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Analysis Tokens</span>
+                    <span className="text-cyan-400 font-medium">{stats.dailyTokenUsage.analysisTokens.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">LaTeX Tokens</span>
+                    <span className="text-purple-400 font-medium">{stats.dailyTokenUsage.latexTokens.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-slate-700 pt-2">
+                    <span className="text-slate-300 font-medium">Total Tokens</span>
+                    <span className="text-slate-100 font-bold">{stats.dailyTokenUsage.totalTokens.toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400">
+                  Date: {stats.dailyTokenUsage.date}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Model Information Card */}
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-50">
+                  <Activity className="h-5 w-5" />
+                  Model Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-xs text-slate-400 mb-1">Analysis Model</div>
+                    <div className="text-sm text-slate-200 font-medium">{stats.modelInfo.analysisModel}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 mb-1">LaTeX Model</div>
+                    <div className="text-sm text-slate-200 font-medium">{stats.modelInfo.latexModel}</div>
+                  </div>
+                  <div className="border-t border-slate-700 pt-2">
+                    <div className="text-xs text-slate-400 mb-1">Session Stats</div>
+                    <div className="text-sm text-slate-200">
+                      {stats.sessionStats.requestsCount} requests, {stats.sessionStats.tokensUsed.toLocaleString()} tokens
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

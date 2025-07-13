@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { RatingDisplay } from '@/components/ui/rating-display'
 import { Logo } from '@/components/ui/logo'
 import { useToast } from '@/hooks/use-toast'
+  import { LaTeXGenerationAnimation } from '@/components/ui/latex-generation-animation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Carousel,
@@ -37,6 +38,7 @@ type Suggestion = {
 type AnalysisResult = {
   score: number;
   sentiment: 'poor' | 'fair' | 'good' | 'excellent';
+  isValidResume?: boolean;
   suggestions: Suggestion[];
   summary: {
     strengths: string[];
@@ -229,6 +231,16 @@ const Results = () => {
   const generateLatexRecommendation = async (templateId: string) => {
     if (!resumeText || isGenerating) return;
 
+    // Check if resume is valid before making API call
+    if (analysisResult?.isValidResume === false) {
+      toast({
+        title: "Invalid Content",
+        description: "LaTeX generation is only available for valid resume content.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
     
@@ -370,8 +382,34 @@ const Results = () => {
             <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="details">Detailed Feedback</TabsTrigger>
-              <TabsTrigger value="latex">AI Resume Generator</TabsTrigger>
+              <TabsTrigger 
+                value="latex" 
+                disabled={analysisResult.isValidResume === false}
+                className={analysisResult.isValidResume === false ? 'opacity-50 cursor-not-allowed' : ''}
+              >
+                AI Resume Generator
+              </TabsTrigger>
             </TabsList>
+
+            {/* Invalid Resume Warning */}
+            {analysisResult.isValidResume === false && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-400" />
+                  <div>
+                    <p className="text-amber-400 font-medium">LaTeX Generator Disabled</p>
+                    <p className="text-amber-300/80 text-sm">
+                      The AI Resume Generator is only available for valid resume content. 
+                      Please upload a proper resume or CV to access this feature.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             <TabsContent value="overview" className="mt-8">
               <div className="grid md:grid-cols-3 gap-8 items-start">
@@ -584,23 +622,35 @@ const Results = () => {
                                   className="transition-transform duration-300 group-hover:scale-105"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                                 <AnimatePresence>
-                                  {isGenerating === template.id && (
-                                    <motion.div
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      exit={{ opacity: 0 }}
-                                      className="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center"
-                                    >
-                                      <div className="w-16 h-16 border-4 border-t-4 border-t-primary border-slate-700 rounded-full animate-spin"></div>
-                                      <p className="text-slate-300 mt-4 text-sm font-semibold">Generating...</p>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                              <div className="p-4">
-                                <h3 className="font-bold text-lg text-slate-50">{template.name}</h3>
-                                <p className="text-sm text-slate-400 mt-1 h-10">{template.description}</p>
+                                
+                                {/* Enhanced Hover Overlay */}
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+                                  <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    whileHover={{ scale: 1, opacity: 1 }}
+                                    className="text-center"
+                                  >
+                                    <div className="bg-primary/20 border border-primary/40 rounded-lg px-6 py-3 backdrop-blur-sm">
+                                      <span className="text-primary font-semibold text-lg">Select</span>
+                                      <div className="text-slate-200 text-sm mt-1">Generate LaTeX</div>
+                                    </div>
+                                  </motion.div>
+                                </div>
+
+                                <div className="absolute bottom-4 left-4 right-4">
+                                  <h3 className="text-white font-semibold text-lg mb-2">{template.name}</h3>
+                                  <p className="text-slate-200 text-sm opacity-90">{template.description}</p>
+                                </div>
+                                
+                                {/* Loading State */}
+                                {isGenerating === template.id && (
+                                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                                    <div className="text-center">
+                                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                                      <span className="text-white text-sm">Generating...</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </Card>
                           </div>
@@ -703,6 +753,12 @@ const Results = () => {
           </Tabs>
         </main>
       </div>
+
+      {/* LaTeX Generation Animation Overlay */}
+      <LaTeXGenerationAnimation
+        isGenerating={isGenerating !== null}
+        templateName={selectedTemplate?.name || null}
+      />
     </div>
   )
 }

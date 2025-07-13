@@ -69,12 +69,6 @@ const Index = () => {
     setProgress(0)
 
     try {
-      // Animate through steps
-      for (let i = 0; i < analysisSteps.length; i++) {
-        setAnalysisStep(i)
-        await new Promise(resolve => setTimeout(resolve, 800))
-      }
-
       // Step 1: Upload file to get extracted text
       const formData = new FormData();
       formData.append('file', file);
@@ -112,7 +106,7 @@ const Index = () => {
       localStorage.setItem('resumeText', extractData.text);
       
       // Small delay to show completion
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
       router.push('/results');
 

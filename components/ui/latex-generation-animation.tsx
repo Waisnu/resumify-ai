@@ -9,90 +9,90 @@ import {
   CheckCircle2,
   Sparkles,
   Zap,
-  Target,
-  Cpu,
+  Code,
   Layers,
-  Wrench
+  Wrench,
+  Cpu
 } from 'lucide-react';
 
-const analysisSteps = [
+const generationSteps = [
   { 
     icon: FileText, 
-    title: "Reading your resume",
-    subtitle: "Parsing structure and content",
-    detail: "Extracting sections, formatting, and key information",
+    title: "Analyzing resume structure",
+    subtitle: "Understanding your professional profile",
+    detail: "Parsing sections, experience, and formatting preferences",
     color: "text-blue-400",
     bg: "bg-blue-400/10"
   },
   { 
     icon: Search, 
-    title: "Scanning for keywords",
-    subtitle: "Identifying relevant skills and experience",
-    detail: "Cross-referencing with industry standards and job market trends",
+    title: "Selecting optimal template",
+    subtitle: "Matching template to your profile",
+    detail: "Choosing the best LaTeX template for your industry and experience",
     color: "text-cyan-400",
     bg: "bg-cyan-400/10"
   },
   { 
     icon: Brain, 
-    title: "Analyzing content depth",
-    subtitle: "Evaluating impact and achievements",
-    detail: "Measuring quantifiable results and career progression",
+    title: "Processing content mapping",
+    subtitle: "Intelligent content organization",
+    detail: "Mapping your experience to LaTeX template sections",
     color: "text-purple-400",
     bg: "bg-purple-400/10"
   },
   { 
-    icon: Target, 
-    title: "Assessing ATS compatibility",
-    subtitle: "Checking applicant tracking systems",
-    detail: "Ensuring your resume passes automated screening filters",
+    icon: Cpu, 
+    title: "Optimizing for ATS systems",
+    subtitle: "Ensuring compatibility",
+    detail: "Structuring content for applicant tracking systems",
     color: "text-orange-400",
     bg: "bg-orange-400/10"
   },
   { 
-    icon: Cpu, 
-    title: "Processing neural networks",
-    subtitle: "Deep learning analysis engaged",
-    detail: "Advanced AI models evaluating professional presentation",
+    icon: Code, 
+    title: "Generating LaTeX code",
+    subtitle: "Creating professional markup",
+    detail: "Converting your content into clean, compilable LaTeX",
     color: "text-green-400",
     bg: "bg-green-400/10"
   },
   { 
     icon: Layers, 
-    title: "Cross-referencing databases",
-    subtitle: "Comparing with successful profiles",
-    detail: "Benchmarking against top-performing resumes in your field",
+    title: "Applying formatting rules",
+    subtitle: "Professional styling",
+    detail: "Implementing consistent fonts, spacing, and layout",
     color: "text-pink-400",
     bg: "bg-pink-400/10"
   },
   { 
     icon: Lightbulb, 
-    title: "Identifying opportunities",
-    subtitle: "Finding improvement areas",
-    detail: "Discovering gaps and enhancement possibilities",
+    title: "Enhancing readability",
+    subtitle: "Optimizing visual hierarchy",
+    detail: "Adjusting sections for maximum impact and clarity",
     color: "text-amber-400",
     bg: "bg-amber-400/10"
   },
   { 
     icon: PenTool, 
-    title: "Crafting recommendations",
-    subtitle: "Generating personalized suggestions",
-    detail: "Creating actionable improvements tailored to your profile",
+    title: "Personalizing content",
+    subtitle: "Tailoring to your strengths",
+    detail: "Highlighting your unique value proposition",
     color: "text-indigo-400",
     bg: "bg-indigo-400/10"
   },
   { 
     icon: Wrench, 
-    title: "Finalizing analysis",
-    subtitle: "Polishing insights and feedback",
-    detail: "Organizing recommendations into clear, actionable steps",
+    title: "Finalizing compilation",
+    subtitle: "Ensuring error-free output",
+    detail: "Validating LaTeX syntax and structure",
     color: "text-teal-400",
     bg: "bg-teal-400/10"
   },
   { 
     icon: CheckCircle2, 
-    title: "Compiling your report",
-    subtitle: "Preparing comprehensive feedback",
-    detail: "Delivering your personalized improvement roadmap",
+    title: "Ready for Overleaf",
+    subtitle: "Your professional resume is complete",
+    detail: "Delivering publication-quality LaTeX code",
     color: "text-emerald-400",
     bg: "bg-emerald-400/10"
   }
@@ -108,7 +108,7 @@ const AnimatedText = ({ text, delay = 0 }: { text: string; delay?: number }) => 
         setDisplayText(text.slice(0, currentIndex + 1));
         setCurrentIndex(currentIndex + 1);
       }
-    }, 30 + Math.random() * 20);
+    }, 25 + Math.random() * 15);
 
     return () => clearTimeout(timeout);
   }, [currentIndex, text]);
@@ -172,73 +172,67 @@ const FloatingIcon = ({ icon: Icon, delay }: { icon: React.ElementType; delay: n
   </motion.div>
 );
 
-export const AnalysisAnimation = ({
-  isAnalyzing,
-  analysisStep,
-  fileName,
-  onStepChange
+export const LaTeXGenerationAnimation = ({
+  isGenerating,
+  templateName
 }: {
-  isAnalyzing: boolean;
-  analysisStep: number;
-  fileName: string | null;
-  onStepChange?: (step: number) => void;
+  isGenerating: boolean;
+  templateName: string | null;
 }) => {
   const [showDetail, setShowDetail] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [adaptiveStep, setAdaptiveStep] = useState(0);
   
-  const currentStep = analysisSteps[Math.min(adaptiveStep, analysisSteps.length - 1)];
+  const currentStep = generationSteps[Math.min(adaptiveStep, generationSteps.length - 1)];
 
   // Smart timing logic
   useEffect(() => {
-    if (isAnalyzing && !startTime) {
+    if (isGenerating && !startTime) {
       setStartTime(Date.now());
       setAdaptiveStep(0);
-    } else if (!isAnalyzing) {
+    } else if (!isGenerating) {
       setStartTime(null);
       setAdaptiveStep(0);
     }
-  }, [isAnalyzing, startTime]);
+  }, [isGenerating, startTime]);
 
   // Adaptive step progression
   useEffect(() => {
-    if (!isAnalyzing || !startTime) return;
+    if (!isGenerating || !startTime) return;
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const expectedTotalTime = 30000; // 30 seconds expected
+      const expectedTotalTime = 25000; // 25 seconds expected for LaTeX generation
       const progress = Math.min(elapsed / expectedTotalTime, 0.9); // Cap at 90% until completion
-      const targetStep = Math.floor(progress * (analysisSteps.length - 1));
+      const targetStep = Math.floor(progress * (generationSteps.length - 1));
       
-      if (targetStep > adaptiveStep && adaptiveStep < analysisSteps.length - 1) {
+      if (targetStep > adaptiveStep && adaptiveStep < generationSteps.length - 1) {
         setAdaptiveStep(targetStep);
-        onStepChange?.(targetStep);
       }
-    }, 500);
+    }, 400);
 
     return () => clearInterval(interval);
-  }, [isAnalyzing, startTime, adaptiveStep, onStepChange]);
+  }, [isGenerating, startTime, adaptiveStep]);
 
-  // Force completion when analysis is done
+  // Force completion when generation is done
   useEffect(() => {
-    if (!isAnalyzing && adaptiveStep < analysisSteps.length - 1) {
-      setAdaptiveStep(analysisSteps.length - 1);
-      onStepChange?.(analysisSteps.length - 1);
+    if (!isGenerating && adaptiveStep < generationSteps.length - 1) {
+      setAdaptiveStep(generationSteps.length - 1);
     }
-  }, [isAnalyzing, adaptiveStep, onStepChange]);
+  }, [isGenerating, adaptiveStep]);
 
   useEffect(() => {
-    if (isAnalyzing) {
-      const timer = setTimeout(() => setShowDetail(true), 800);
+    if (isGenerating) {
+      const timer = setTimeout(() => setShowDetail(true), 600);
       return () => clearTimeout(timer);
     } else {
       setShowDetail(false);
     }
-  }, [isAnalyzing, adaptiveStep]);
+  }, [isGenerating, adaptiveStep]);
 
   return (
     <AnimatePresence>
-      {isAnalyzing && (
+      {isGenerating && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -249,7 +243,7 @@ export const AnalysisAnimation = ({
             
             {/* Floating background icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {[Sparkles, Zap, Brain, Lightbulb, Target, Cpu].map((Icon, i) => (
+              {[Sparkles, Zap, Code, Layers, Brain, Cpu].map((Icon, i) => (
                 <FloatingIcon key={i} icon={Icon} delay={i * 0.8} />
               ))}
             </div>
@@ -257,15 +251,15 @@ export const AnalysisAnimation = ({
             {/* Main content */}
             <div className="relative bg-slate-900/50 rounded-2xl p-8 border border-slate-800 backdrop-blur-sm">
               
-              {/* File name */}
-              {fileName && (
+              {/* Template name */}
+              {templateName && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-center mb-6"
                 >
-                  <p className="text-slate-400 text-sm mb-1">Analyzing</p>
-                  <p className="text-slate-200 font-medium">{fileName}</p>
+                  <p className="text-slate-400 text-sm mb-1">Generating LaTeX for</p>
+                  <p className="text-slate-200 font-medium">{templateName}</p>
                 </motion.div>
               )}
 
@@ -279,7 +273,7 @@ export const AnalysisAnimation = ({
                 <div className={`relative p-4 rounded-full ${currentStep.bg} border border-slate-700`}>
                   <motion.div
                     animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                   >
                     <currentStep.icon className={`w-8 h-8 ${currentStep.color}`} />
                   </motion.div>
@@ -288,7 +282,7 @@ export const AnalysisAnimation = ({
                   <motion.div
                     className={`absolute inset-0 rounded-full ${currentStep.bg} border border-current`}
                     animate={{
-                      scale: [1, 1.2, 1],
+                      scale: [1, 1.3, 1],
                       opacity: [0.5, 0, 0.5]
                     }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -307,7 +301,7 @@ export const AnalysisAnimation = ({
                   <AnimatedText text={currentStep.title} />
                 </h2>
                 <p className="text-slate-400 text-sm">
-                  <AnimatedText text={currentStep.subtitle} delay={500} />
+                  <AnimatedText text={currentStep.subtitle} delay={400} />
                 </p>
               </motion.div>
 
@@ -329,11 +323,11 @@ export const AnalysisAnimation = ({
 
               {/* Progress */}
               <div className="space-y-3">
-                <ProgressDots total={analysisSteps.length} current={adaptiveStep} />
+                <ProgressDots total={generationSteps.length} current={adaptiveStep} />
                 
                 <div className="text-center">
                   <span className="text-slate-400 text-sm">
-                    Step {adaptiveStep + 1} of {analysisSteps.length}
+                    Step {adaptiveStep + 1} of {generationSteps.length}
                   </span>
                 </div>
               </div>
@@ -341,9 +335,9 @@ export const AnalysisAnimation = ({
               {/* Progress bar */}
               <div className="mt-4 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-blue-400 to-purple-400"
+                  className="h-full bg-gradient-to-r from-green-400 to-blue-400"
                   initial={{ width: 0 }}
-                  animate={{ width: `${((adaptiveStep + 1) / analysisSteps.length) * 100}%` }}
+                  animate={{ width: `${((adaptiveStep + 1) / generationSteps.length) * 100}%` }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 />
               </div>
@@ -353,4 +347,4 @@ export const AnalysisAnimation = ({
       )}
     </AnimatePresence>
   );
-};
+}; 

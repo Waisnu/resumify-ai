@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import path from 'path';
 import fs from 'fs/promises';
-import { incrementCounter, logError } from '@/lib/admin-stats';
+import { incrementCounter, logError, trackTokenUsage } from '@/lib/admin-stats';
 
 // --- Smart API Key Manager ---
 const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').map(key => key.trim()).filter(Boolean);
@@ -200,6 +200,32 @@ export default async function handler(
     // Remove any markdown code blocks if present
     generatedCode = generatedCode.replace(/```latex\n/g, '').replace(/```\n/g, '').replace(/```/g, '');
     
+    // Enhanced LaTeX cleaning for better Overleaf compatibility
+    generatedCode = generatedCode
+      // Remove problematic tab characters
+      .replace(/\\t/g, '')
+      .replace(/\t/g, ' ')
+      // Fix common encoding issues
+      .replace(/'/g, "'")
+      .replace(/'/g, "'")
+      .replace(/"/g, '"')
+      .replace(/"/g, '"')
+      .replace(/–/g, '--')
+      .replace(/—/g, '---')
+      // Ensure proper LaTeX escaping for special characters
+      .replace(/([^\\])&/g, '$1\\&')
+      .replace(/([^\\])%/g, '$1\\%')
+      .replace(/([^\\])#/g, '$1\\#')
+      .replace(/([^\\])\$/g, '$1\\$')
+      // Remove any remaining problematic characters
+      .replace(/[\u2000-\u206F\u2E00-\u2E7F\\'!"#$%&()*+,\-.\/:;<=>?@\[\]^_`{|}~]/g, (match) => {
+        // Keep essential LaTeX characters, escape others
+        if (['\\', '{', '}', '$', '&', '%', '#', '^', '_', '~'].includes(match)) {
+          return match;
+        }
+        return match.replace(/[^\x00-\x7F]/g, ''); // Remove non-ASCII
+      });
+    
     // Basic validation - ensure it looks like LaTeX
     if (!generatedCode.includes('\\documentclass') || !generatedCode.includes('\\begin{document}')) {
       console.error('❌ Generated code does not appear to be valid LaTeX');
@@ -234,6 +260,10 @@ export default async function handler(
     parsedResponse.generatedCode = parsedResponse.generatedCode.replace(/\\t/g, '');
 
     console.log('🎉 Improved LaTeX Recommendation generated successfully');
+    
+    // Track token usage for monitoring
+    const estimatedTokens = Math.ceil((resumeText.length + templateContent.length + generatedCode.length) / 4);
+    await trackTokenUsage('latex', estimatedTokens, MODEL_NAME);
     
     // Track successful LaTeX generation
     await incrementCounter('totalLatexGenerations');
