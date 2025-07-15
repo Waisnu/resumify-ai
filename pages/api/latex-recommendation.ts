@@ -140,7 +140,7 @@ class APIKeyManager {
   }
   
   // Record error and handle rate limiting
-  recordError(client: GoogleGenerativeAI, error: any) {
+  recordError(client: GoogleGenerativeAI, error: unknown) {
     const keyIndex = this.clients.indexOf(client);
     if (keyIndex !== -1) {
       const key = this.apiKeys[keyIndex];
@@ -148,7 +148,7 @@ class APIKeyManager {
       metrics.errors++;
       
       // Check if it's a rate limit error
-      if (error.message?.includes('429') || error.message?.includes('quota')) {
+      if (error instanceof Error && (error.message?.includes('429') || error.message?.includes('quota'))) {
         metrics.rateLimitReset = Date.now() + 60000; // Wait 1 minute
         console.log(`⚠️ Rate limit hit for API Key #${keyIndex + 1}, cooling down for 60 seconds`);
       }
@@ -333,7 +333,7 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
       cleanedCode = cleanedCode
         // Fix standard LaTeX formatting issues
         .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
-        .replace(/\\\\/g, '\\')
+        .replace(/\\/g, '\\')
         // Ensure proper section formatting
         .replace(/\\section\{([^}]+)\}/g, '\\section{$1}')
         .replace(/\\subsection\{([^}]+)\}/g, '\\subsection{$1}')
@@ -350,7 +350,7 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
         .replace(/\\section\s*\{([^}]+)\}/g, '\\begin{rSection}{$1}\\n\\n\\end{rSection}')
         .replace(/\\subsection\s*\{([^}]+)\}/g, '\\begin{rSection}{$1}\\n\\n\\end{rSection}')
         // Fix role formatting with proper spacing
-        .replace(/\\textbf\s*\{([^}]+)\}\s*\\hfill\s*([^\\]+)\\\\/g, '\\textbf{$1} \\hfill $2\\\\')
+        .replace(/\\textbf\s*\{([^}]+)\}\s*\\hfill\s*([^\\]+)\\/g, '\\textbf{$1} \\hfill $2\\')
         // Fix company and location formatting
         .replace(/([A-Za-z\s&,.]+)\s*\\hfill\s*\\textit\s*\{([^}]+)\}/g, '$1 \\hfill \\textit{$2}')
         // Ensure proper itemize structure with correct spacing
@@ -376,8 +376,7 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
     default:
       // Generic fixes for other templates
       cleanedCode = cleanedCode
-        .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
-        .replace(/\\\\/g, '\\');
+        .replace(/\\/g, '\\');
   }
   
   // Step 3: General LaTeX syntax validation and fixes
@@ -474,7 +473,7 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
         // Ensure proper spacing around rSection
         .replace(/\\end\{rSection\}\s*\\begin\{rSection\}/g, '\\end{rSection}\\n\\n\\begin{rSection}')
         // Fix common spacing issues
-        .replace(/\\\\\s*\\\\/g, '\\\\')
+        .replace(/\\\s*\\/g, '\\')
         .replace(/\s+\\hfill/g, ' \\hfill')
         .replace(/\\hfill\s+/g, '\\hfill ');
       break;
@@ -735,8 +734,8 @@ export default async function handler(
     console.log('🔍 Generated Code Preview:', generatedCode.substring(0, 300) + '...');
 
     // Validate that template structure is preserved
-    const originalTemplateCommands = inlinedTemplateContent.match(/\\[a-zA-Z]+(?=\{)/g) || [];
-    const generatedCommands = generatedCode.match(/\\[a-zA-Z]+(?=\{)/g) || [];
+    const originalTemplateCommands = inlinedTemplateContent.match(/\[a-zA-Z]+(?=\{)/g) || [];
+    const generatedCommands = generatedCode.match(/\[a-zA-Z]+(?=\{)/g) || [];
     
     console.log('🔍 Original template commands:', originalTemplateCommands.slice(0, 10));
     console.log('🔍 Generated commands:', generatedCommands.slice(0, 10));
@@ -759,11 +758,11 @@ export default async function handler(
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
       // Fix common LaTeX formatting issues
-      .replace(/\\\\([a-zA-Z]+)\\{/g, '\\\\$1{')
+      .replace(/\\/g, '\\')
       // Ensure proper section formatting
-      .replace(/\\\\section\\s*\\{([^}]+)\\}/g, '\\\\section{$1}')
+      .replace(/\\section\s*\{([^}]+)\}/g, '\\section{$1}')
       // Fix common command spacing
-      .replace(/\\\\item\\s+/g, '\\\\item ')
+      .replace(/\\item\s+/g, '\\item ')
       // Remove extra whitespace
       .replace(/\n\s*\n\s*\n/g, '\n\n')
       .trim();
