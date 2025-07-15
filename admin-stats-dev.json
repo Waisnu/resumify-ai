@@ -1,0 +1,30 @@
+{
+  "totalResumes": 3,
+  "totalAnalyses": 2,
+  "totalLatexGenerations": 2,
+  "recentErrors": [
+    "2025-07-16 03:31:23: API Key #1 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later.",
+    "2025-07-16 03:30:05: Analysis failed: All AI models are currently unavailable. Please try again later.",
+    "2025-07-16 03:30:05: API Key #3 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later.",
+    "2025-07-16 03:29:53: API Key #2 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later.",
+    "2025-07-16 03:29:49: API Key #1 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later."
+  ],
+  "lastUpdated": "2025-07-15T19:32:51.974Z",
+  "dailyTokenUsage": {
+    "date": "2025-07-15",
+    "analysisTokens": 5090,
+    "latexTokens": 7938,
+    "totalTokens": 13028
+  },
+  "modelInfo": {
+    "analysisModel": "gemini-2.5-pro",
+    "latexModel": "gemini-2.5-pro",
+    "dailyLimit": 1500,
+    "requestsToday": 4
+  },
+  "sessionStats": {
+    "tokensUsed": 13028,
+    "requestsCount": 4,
+    "lastSessionTime": "2025-07-15T19:32:51.970Z"
+  }
+}

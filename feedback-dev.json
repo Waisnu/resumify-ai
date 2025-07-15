@@ -1,0 +1,15 @@
+{
+  "feedbacks": [
+    {
+      "message": "testasdasdadsa",
+      "rating": 5,
+      "name": "asdsa",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+      "ipAddress": "::1",
+      "id": "feedback_1752607667741_7iqkgfhz0",
+      "timestamp": "2025-07-15T19:27:47.741Z"
+    }
+  ],
+  "totalCount": 1,
+  "lastUpdated": "2025-07-15T19:27:47.741Z"
+}

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import Head from 'next/head'
 import {
   ArrowLeft, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp,
   Briefcase, Zap, Lightbulb, Mail, GraduationCap, Palette, FileText, User, Code, Copy, ExternalLink, Sparkles,
@@ -15,6 +16,7 @@ import { Logo } from '@/components/ui/logo'
 import { useToast } from '@/hooks/use-toast'
   import { LaTeXGenerationAnimation } from '@/components/ui/latex-generation-animation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FeedbackForm } from '@/components/ui/feedback-form'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
@@ -322,7 +324,15 @@ const Results = () => {
   })
 
   return (
-    <div className="bg-slate-950 min-h-screen text-white">
+    <>
+      <Head>
+        <title>Resume Analysis Results - Resumify AI</title>
+        <meta name="description" content="View your comprehensive resume analysis with AI-powered feedback, actionable suggestions, and professional LaTeX template generation." />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta property="og:title" content="Resume Analysis Results - Resumify AI" />
+        <meta property="og:description" content="Your personalized resume analysis with expert feedback and professional templates." />
+      </Head>
+      <div className="bg-slate-950 min-h-screen text-white">
       <header className="sticky top-0 z-50 p-3 md:p-4 md:px-6 border-b border-slate-800 bg-slate-950/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <Link href="/">
@@ -368,28 +378,32 @@ const Results = () => {
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 max-w-2xl mx-auto">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto h-auto">
+              <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5">
+                Overview
+              </TabsTrigger>
               <TabsTrigger 
                 value="details"
                 disabled={analysisResult.isValidResume === false}
                 className={cn(
-                  'transition-all duration-300',
+                  'text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all duration-300',
                   { 'opacity-50 cursor-not-allowed': analysisResult.isValidResume === false },
                 )}
               >
-                Detailed Feedback
+                <span className="hidden sm:inline">Detailed Feedback</span>
+                <span className="sm:hidden">Feedback</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="latex" 
                 disabled={analysisResult.isValidResume === false}
                 className={cn(
-                  'transition-all duration-300',
+                  'text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-2.5 transition-all duration-300',
                   { 'opacity-50 cursor-not-allowed': analysisResult.isValidResume === false },
                 )}
               >
-                <Flame className="mr-2 h-4 w-4" />
-                AI Resume Generator
+                <Flame className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">AI Resume Generator</span>
+                <span className="sm:hidden">AI Gen</span>
               </TabsTrigger>
             </TabsList>
 
@@ -761,6 +775,11 @@ const Results = () => {
               </div>
             </TabsContent>
           </Tabs>
+          
+          {/* Feedback Section */}
+          <div className="mt-12 flex justify-center">
+            <FeedbackForm className="w-full max-w-2xl" />
+          </div>
         </main>
       </div>
 
@@ -769,7 +788,8 @@ const Results = () => {
         isGenerating={isGenerating !== null}
         templateName={selectedTemplate?.name || null}
       />
-    </div>
+      </div>
+    </>
   )
 }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import Head from 'next/head'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -64,6 +65,56 @@ const Index = () => {
     if (isAnalyzing) return;
 
     setSelectedFile(file)
+    
+    // Generate a more reliable cache key using file content hash
+    const generateCacheKey = async (file: File) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return `resumeFile_${file.name}_${file.size}_${hashHex.slice(0, 16)}`;
+    };
+    
+    const cacheKey = await generateCacheKey(file);
+    const cachedData = localStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      try {
+        const { analysisResult, extractedText, cachedAt } = JSON.parse(cachedData);
+        
+        // Check if cache is still valid (24 hours)
+        const cacheAge = new Date().getTime() - new Date(cachedAt).getTime();
+        const cacheValidTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        
+        if (cacheAge > cacheValidTime) {
+          console.log('📁 Cache expired, removing...');
+          localStorage.removeItem(cacheKey);
+        } else {
+          console.log('📁 Using cached file data (age:', Math.round(cacheAge / 1000 / 60), 'minutes)');
+          
+          // Quick animation to show we're using cached data
+          setIsAnalyzing(true);
+          setAnalysisStep(1);
+          setProgress(50);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          setAnalysisStep(2);
+          setProgress(100);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Store result and navigate
+          localStorage.setItem('resumeAnalysis', JSON.stringify({ ...analysisResult, fileName: file.name }));
+          localStorage.setItem('resumeText', extractedText);
+          
+          router.push('/results');
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to parse cached data:', error);
+        localStorage.removeItem(cacheKey);
+      }
+    }
+    
+    // File not cached, proceed with normal analysis
     setIsAnalyzing(true)
     setAnalysisStep(0)
     setProgress(0)
@@ -99,6 +150,19 @@ const Index = () => {
 
       if (!analyzeResponse.ok) {
         throw new Error(analysisResult.error || 'Failed to analyze resume.');
+      }
+
+      // Cache the file data for future use
+      try {
+        const cacheData = {
+          analysisResult,
+          extractedText: extractData.text,
+          cachedAt: new Date().toISOString()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        console.log('💾 File data cached successfully with key:', cacheKey);
+      } catch (cacheError) {
+        console.warn('Failed to cache file data:', cacheError);
       }
 
       // Step 3: Store result and resume text in localStorage and navigate
@@ -171,7 +235,19 @@ const Index = () => {
   ]
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground overflow-x-hidden select-none">
+    <>
+      <Head>
+        <title>Resumify AI - Transform Your Resume with AI-Powered Analysis & LaTeX Generation</title>
+        <meta name="description" content="Upload your resume and get instant AI-powered feedback with actionable suggestions. Generate professional LaTeX templates trusted by top tech companies. ATS-optimized, interview-ready results." />
+        <meta name="keywords" content="resume analyzer, CV builder, LaTeX resume generator, ATS resume checker, AI resume feedback, professional resume templates, tech resume, FAANG resume, resume optimization tool" />
+        <meta property="og:title" content="Resumify AI - AI-Powered Resume Analysis & LaTeX Generation" />
+        <meta property="og:description" content="Transform your resume with AI analysis and professional LaTeX templates. Get actionable feedback and create interview-ready resumes trusted by top companies." />
+        <meta property="og:image" content="https://resumify-peach.vercel.app/og-image.png" />
+        <meta name="twitter:title" content="Resumify AI - Transform Your Resume with AI" />
+        <meta name="twitter:description" content="AI-powered resume analysis and LaTeX generation. Get expert feedback and professional templates." />
+        <meta name="twitter:image" content="https://resumify-peach.vercel.app/og-image.png" />
+      </Head>
+      <div className="relative min-h-screen bg-background text-foreground overflow-x-hidden select-none">
       {/* Enhanced Aurora/Glassmorphism Background */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
         {/* Primary aurora gradients - made more visible */}
@@ -412,7 +488,8 @@ const Index = () => {
           </p>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   )
 }
 

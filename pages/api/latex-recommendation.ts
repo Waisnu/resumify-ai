@@ -346,6 +346,15 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
       
     case 'faang-cv':
       cleanedCode = cleanedCode
+        // Step 1: Fix critical LaTeX syntax errors first
+        .replace(/\\n/g, '\n')  // Fix invalid \n usage
+        .replace(/extbf\{/g, '\\textbf{')  // Fix extbf typo
+        .replace(/extit\{/g, '\\textit{')  // Fix extit typo
+        .replace(/extwidth/g, '\\textwidth')  // Fix extwidth typo
+        .replace(/\\item\s*sep\s*-3pt\s*\{\}/g, '\\itemsep -3pt {}')  // Fix item sep typo
+        .replace(/(\\address\{[^}]+\})\s*(\\address\{[^}]+\})\s*(\\address\{[^}]+\})/g, '$1 $2')  // Fix multiple addresses
+        .replace(/\\\\\\\\/g, '\\\\')  // Fix quadruple backslashes
+        .replace(/\\\\\s*\\\\/g, '\\\\')  // Fix double backslashes with space
         // CRITICAL: Replace ALL section commands with rSection
         .replace(/\\section\s*\{([^}]+)\}/g, '\\begin{rSection}{$1}\\n\\n\\end{rSection}')
         .replace(/\\subsection\s*\{([^}]+)\}/g, '\\begin{rSection}{$1}\\n\\n\\end{rSection}')
@@ -369,6 +378,8 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
                  '\\begin{rSection}{$1}\\n\\n$2\\n\\end{rSection}')
         // Fix itemize formatting inside rSection
         .replace(/(\s+)\\item\s*/g, '$1\\item ')
+        // Step 2: Fix orphaned items by wrapping them in itemize environments
+        .replace(/(?<!\\begin\{itemize\}[\s\S]{0,200})\\item\s*([^\\]+?)(?=\n(?![\\s]*\\item))/g, '\\begin{itemize}\n    \\itemsep -3pt {}\n    \\item $1\n\\end{itemize}')
         // Clean up excessive spacing
         .replace(/\n\s*\n\s*\n/g, '\n\n');
       break;
@@ -465,8 +476,52 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
         console.warn('⚠️ FAANG CV: Missing or improperly formatted itemize environments');
       }
       
-      // Final cleanup for FAANG cv
+      // Final cleanup for FAANG cv - Enhanced with specific fixes from bug report
       cleanedCode = cleanedCode
+        // Fix 1: Invalid \n usage - replace with proper LaTeX newlines
+        .replace(/\\n/g, '\n')
+        // Fix 2: extbf and extit typos
+        .replace(/\\extbf\{/g, '\\textbf{')
+        .replace(/\\extit\{/g, '\\textit{')
+        // Fix 3: Fix .textwidth typos
+        .replace(/\.(\d+)extwidth/g, '.$1\\textwidth')
+        // Fix 4: Fix orphaned \item commands outside itemize
+        .replace(/(?<!\\begin\{itemize\}[\s\S]*?)\\item(?!\s*\\item)(?![\s\S]*?\\end\{itemize\})/g, (match, offset, string) => {
+          // Check if this \item is already inside an itemize environment
+          const beforeMatch = string.substring(0, offset);
+          const afterMatch = string.substring(offset);
+          const lastItemizeBegin = beforeMatch.lastIndexOf('\\begin{itemize}');
+          const lastItemizeEnd = beforeMatch.lastIndexOf('\\end{itemize}');
+          
+          if (lastItemizeBegin > lastItemizeEnd) {
+            return match; // Already inside itemize, keep it
+          }
+          
+          // Find the next \end{itemize} after this \item
+          const nextItemizeEnd = afterMatch.indexOf('\\end{itemize}');
+          if (nextItemizeEnd === -1) {
+            // No closing itemize found, wrap it
+            return '\\begin{itemize}\n\\itemsep -3pt {}\n' + match;
+          }
+          
+          return match;
+        })
+        // Fix 5: Remove invalid \item sep -3pt {} syntax
+        .replace(/\\item\s+sep\s+-3pt\s*\{\}/g, '\\itemsep -3pt {}')
+        // Fix 6: Fix proper itemize environment structure
+        .replace(/\\begin\{itemize\}(?!\s*\\itemsep)/g, '\\begin{itemize}\n\\itemsep -3pt {}')
+        // Fix 7: Fix multiple \address{} usage - only keep the first one
+        .replace(/(\\address\{[^}]*\})\s*\\address\{[^}]*\}\s*\\address\{[^}]*\}/g, '$1')
+        // Fix 8: Remove extra \\ where not needed
+        .replace(/\\\\(?=\s*\\begin\{)/g, '')
+        .replace(/\\\\(?=\s*\\end\{)/g, '')
+        // Fix 9: Fix environment closure syntax
+        .replace(/\\end\{([^}]+)\}\s*\{/g, '\\end{$1}')
+        // Fix 10: Ensure proper itemize wrapping for bullet points
+        .replace(/(?:^|\n)(\s*)•([^\n]+)/gm, (match, indent, content) => {
+          return `${indent}\\item ${content.trim()}`;
+        })
+        // Standard fixes
         .replace(/\\begin\{rSection\}\s*\{([^}]+)\}/g, '\\begin{rSection}{$1}')
         .replace(/\\textbf\{([^}]+)\}\s*\\hfill/g, '\\textbf{$1} \\hfill')
         .replace(/\\itemsep\s*-3pt\s*\{\}/g, '\\itemsep -3pt {}')
@@ -475,7 +530,15 @@ function cleanAndValidateLatex(code: string, templateId: string): string {
         // Fix common spacing issues
         .replace(/\\\s*\\/g, '\\')
         .replace(/\s+\\hfill/g, ' \\hfill')
-        .replace(/\\hfill\s+/g, '\\hfill ');
+        .replace(/\\hfill\s+/g, '\\hfill ')
+        // Ensure all bullet points are properly wrapped in itemize
+        .replace(/(\\item[^\n]*(?:\n\\item[^\n]*)*)/g, (match) => {
+          // Check if this block is already in itemize
+          if (match.includes('\\begin{itemize}')) {
+            return match;
+          }
+          return `\\begin{itemize}\n\\itemsep -3pt {}\n${match}\n\\end{itemize}`;
+        });
       break;
     }
   }

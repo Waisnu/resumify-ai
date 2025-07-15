@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import AdminLoading from '@/components/ui/admin-loading'
 import {
   Shield, Key, Activity, AlertTriangle, CheckCircle, XCircle, 
-  Users, FileText, Zap, TrendingUp, Eye, EyeOff, RefreshCw
+  Users, FileText, Zap, TrendingUp, Eye, EyeOff, RefreshCw, MessageSquare, Star
 } from 'lucide-react'
 
 interface AdminStats {
@@ -40,6 +40,17 @@ interface AdminStats {
   };
 }
 
+interface UserFeedback {
+  id: string;
+  message: string;
+  rating?: number;
+  timestamp: string;
+  userAgent?: string;
+  ipAddress?: string;
+  email?: string;
+  name?: string;
+}
+
 const AdminPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
@@ -52,6 +63,12 @@ const AdminPage = () => {
     estimatedAnalyses: number;
     estimatedLatexGenerations: number;
     percentageUsed: number;
+  } | null>(null)
+  const [feedbacks, setFeedbacks] = useState<UserFeedback[]>([])
+  const [feedbackStats, setFeedbackStats] = useState<{
+    totalCount: number;
+    averageRating: number;
+    lastUpdated: string;
   } | null>(null)
   const { toast } = useToast()
   const router = useRouter()
@@ -111,6 +128,30 @@ const AdminPage = () => {
         }
       } catch (error) {
         console.error('Failed to load capacity data:', error)
+      }
+
+      // Load feedback data
+      try {
+        const feedbackResponse = await fetch('/api/feedback')
+        if (feedbackResponse.ok) {
+          const feedbackData = await feedbackResponse.json()
+          setFeedbacks(feedbackData.feedbacks || [])
+          
+          // Calculate feedback stats
+          const totalCount = feedbackData.totalCount || 0
+          const validRatings = feedbackData.feedbacks?.filter((f: UserFeedback) => f.rating) || []
+          const averageRating = validRatings.length > 0 
+            ? validRatings.reduce((sum: number, f: UserFeedback) => sum + (f.rating || 0), 0) / validRatings.length
+            : 0
+            
+          setFeedbackStats({
+            totalCount,
+            averageRating,
+            lastUpdated: feedbackData.lastUpdated || new Date().toISOString()
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load feedback data:', error)
       }
     } catch (error) {
       console.error('Error loading stats:', error)
@@ -276,7 +317,7 @@ const AdminPage = () => {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {/* Stats Cards */}
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -327,6 +368,23 @@ const AdminPage = () => {
                     />
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-slate-300">User Feedback</CardTitle>
+                <MessageSquare className="h-4 w-4 text-slate-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-slate-50">{feedbackStats?.totalCount || 0}</div>
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span>Avg rating:</span>
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                    <span>{feedbackStats?.averageRating?.toFixed(1) || 'N/A'}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -435,9 +493,9 @@ const AdminPage = () => {
           </div>
         )}
 
-        {/* API Key Health */}
+        {/* API Key Health and Feedback */}
         {stats && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-slate-50">
@@ -484,27 +542,158 @@ const AdminPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="max-h-80 overflow-y-auto space-y-2">
                   {stats.recentErrors.length > 0 ? (
-                    stats.recentErrors.slice(0, 5).map((error, index) => (
-                      <div key={index} className="p-3 bg-red-400/10 border border-red-400/20 rounded-lg">
-                        <p className="text-sm text-red-400">{error}</p>
-                      </div>
-                    ))
+                    stats.recentErrors.map((error, index) => {
+                      // Parse timestamp and error message
+                      const [timestamp, ...messageParts] = error.split(': ');
+                      const message = messageParts.join(': ');
+                      
+                      // Format timestamp for better readability
+                      const formatTimestamp = (ts: string) => {
+                        try {
+                          const date = new Date(ts);
+                          return date.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                          });
+                        } catch {
+                          return ts;
+                        }
+                      };
+                      
+                      return (
+                        <div key={index} className="p-3 bg-red-400/10 border border-red-400/20 rounded-lg">
+                          <div className="flex justify-between items-start gap-2">
+                            <p className="text-sm text-red-400 flex-1">{message}</p>
+                            <span className="text-xs text-red-300/70 whitespace-nowrap">
+                              {formatTimestamp(timestamp)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-slate-400 text-sm">No recent errors</p>
                   )}
                 </div>
+                {stats.recentErrors.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-slate-700">
+                    <p className="text-xs text-slate-500">
+                      Showing {stats.recentErrors.length} error{stats.recentErrors.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-50">
+                  <MessageSquare className="h-5 w-5" />
+                  User Feedback
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-80 overflow-y-auto space-y-3">
+                  {feedbacks.length > 0 ? (
+                    feedbacks.slice(0, 20).map((feedback) => (
+                      <div key={feedback.id} className="p-3 bg-slate-800 rounded-lg border border-slate-700">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            {feedback.rating && (
+                              <div className="flex items-center gap-1">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star 
+                                    key={i} 
+                                    className={`h-3 w-3 ${
+                                      i < feedback.rating! ? 'text-yellow-400 fill-current' : 'text-slate-600'
+                                    }`} 
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {feedback.name && (
+                              <Badge variant="secondary" className="text-xs bg-slate-700 text-slate-300">
+                                {feedback.name}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-400 whitespace-nowrap">
+                            {new Date(feedback.timestamp).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-300 mb-2">{feedback.message}</p>
+                        {feedback.email && (
+                          <p className="text-xs text-slate-500">{feedback.email}</p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-slate-400 text-sm">No feedback received yet</p>
+                  )}
+                </div>
+                {feedbacks.length > 20 && (
+                  <div className="mt-2 pt-2 border-t border-slate-700">
+                    <p className="text-xs text-slate-500">
+                      Showing latest 20 of {feedbacks.length} feedback{feedbacks.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         )}
 
         {stats && (
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-4">
             <p className="text-sm text-slate-400">
               Last updated: {new Date(stats.lastUpdated).toLocaleString()}
             </p>
+            
+            {/* Development only - Clear stats button */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/admin/clear-dev-stats', {
+                        method: 'POST',
+                      });
+                      
+                      if (response.ok) {
+                        toast({
+                          title: "Success",
+                          description: "Development stats cleared successfully",
+                        });
+                        refreshStats();
+                      } else {
+                        throw new Error('Failed to clear stats');
+                      }
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to clear development stats",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10"
+                >
+                  🧹 Clear Dev Stats
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

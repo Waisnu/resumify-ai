@@ -30,7 +30,9 @@ interface AdminStats {
   };
 }
 
-const STATS_FILE = path.join(process.cwd(), 'admin-stats.json');
+// Use different files for dev and prod environments
+const isDevelopment = process.env.NODE_ENV === 'development';
+const STATS_FILE = path.join(process.cwd(), isDevelopment ? 'admin-stats-dev.json' : 'admin-stats.json');
 
 export async function getStats(): Promise<AdminStats> {
   try {
@@ -273,5 +275,44 @@ export async function calculateDailyCapacity(): Promise<{
       estimatedLatexGenerations: 0,
       percentageUsed: 100
     };
+  }
+}
+
+export async function clearDevStats(): Promise<void> {
+  if (!isDevelopment) {
+    throw new Error('Can only clear stats in development environment');
+  }
+  
+  try {
+    const defaultStats: AdminStats = {
+      totalResumes: 0,
+      totalAnalyses: 0,
+      totalLatexGenerations: 0,
+      recentErrors: [],
+      lastUpdated: new Date().toISOString(),
+      dailyTokenUsage: {
+        date: new Date().toISOString().slice(0, 10),
+        analysisTokens: 0,
+        latexTokens: 0,
+        totalTokens: 0
+      },
+      modelInfo: {
+        analysisModel: 'gemini-2.5-pro',
+        latexModel: 'gemini-2.5-pro',
+        dailyLimit: 1500,
+        requestsToday: 0
+      },
+      sessionStats: {
+        tokensUsed: 0,
+        requestsCount: 0,
+        lastSessionTime: new Date().toISOString()
+      }
+    };
+    
+    await fs.writeFile(STATS_FILE, JSON.stringify(defaultStats, null, 2));
+    console.log('✅ Development stats cleared successfully');
+  } catch (error) {
+    console.error('Failed to clear dev stats:', error);
+    throw error;
   }
 } 
