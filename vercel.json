@@ -11,10 +11,6 @@
       "maxDuration": 30
     }
   },
-  "env": {
-    "GEMINI_API_KEYS": "@gemini-api-keys",
-    "ADMIN_PASSWORD": "@admin-password"
-  },
   "headers": [
     {
       "source": "/(.*)",
