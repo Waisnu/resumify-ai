@@ -1,7 +1,7 @@
 {
   "totalResumes": 24,
   "totalAnalyses": 22,
-  "totalLatexGenerations": 25,
+  "totalLatexGenerations": 26,
   "recentErrors": [
     "2025-07-15 21:29:06: LaTeX generation failed: All AI models are currently unavailable for LaTeX generation.",
     "2025-07-15 21:29:06: LaTeX Gen API Key #3 failed: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [503 Service Unavailable] The model is overloaded. Please try again later.",
@@ -17,22 +17,22 @@
     "2025-07-12T18:43:54.822Z: JSON parsing failed: Unexpected token \t in JSON at position 1113",
     "2025-07-12T18:33:30.737Z: LaTeX generation failed: Cannot read properties of undefined (reading 'replace')"
   ],
-  "lastUpdated": "2025-07-15T14:57:57.482Z",
+  "lastUpdated": "2025-07-15T15:28:47.211Z",
   "dailyTokenUsage": {
     "date": "2025-07-15",
     "analysisTokens": 11061,
-    "latexTokens": 68750,
-    "totalTokens": 79811
+    "latexTokens": 72734,
+    "totalTokens": 83795
   },
   "modelInfo": {
     "analysisModel": "gemini-2.5-pro",
     "latexModel": "gemini-2.5-pro",
     "dailyLimit": 1500,
-    "requestsToday": 19
+    "requestsToday": 20
   },
   "sessionStats": {
-    "tokensUsed": 87127,
-    "requestsCount": 21,
-    "lastSessionTime": "2025-07-15T14:57:57.478Z"
+    "tokensUsed": 91111,
+    "requestsCount": 22,
+    "lastSessionTime": "2025-07-15T15:28:47.207Z"
   }
 }

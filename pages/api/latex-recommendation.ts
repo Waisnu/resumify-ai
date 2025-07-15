@@ -613,7 +613,7 @@ const inlineImports = async (filePath: string, content: string): Promise<string>
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<{ recommendation?: LaTeXRecommendation; error?: string; status?: any }>
+  res: NextApiResponse<{ recommendation?: LaTeXRecommendation; error?: string; status?: object }>
 ) {
   // Health check endpoint for monitoring API key manager
   if (req.method === 'GET' && req.query.status === 'true') {
@@ -734,8 +734,8 @@ export default async function handler(
     console.log('🔍 Generated Code Preview:', generatedCode.substring(0, 300) + '...');
 
     // Validate that template structure is preserved
-    const originalTemplateCommands = inlinedTemplateContent.match(/\[a-zA-Z]+(?=\{)/g) || [];
-    const generatedCommands = generatedCode.match(/\[a-zA-Z]+(?=\{)/g) || [];
+    const originalTemplateCommands = inlinedTemplateContent.match(/[a-zA-Z]+(?=\{)/g) || [];
+    const generatedCommands = generatedCode.match(/[a-zA-Z]+(?=\{)/g) || [];
     
     console.log('🔍 Original template commands:', originalTemplateCommands.slice(0, 10));
     console.log('🔍 Generated commands:', generatedCommands.slice(0, 10));
