@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
@@ -15,13 +15,6 @@ import { Logo } from '@/components/ui/logo'
 import { useToast } from '@/hooks/use-toast'
   import { LaTeXGenerationAnimation } from '@/components/ui/latex-generation-animation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel"
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
@@ -59,46 +52,18 @@ type LaTeXRecommendation = {
 // We'll manage our templates here. This makes it easy to add new ones.
 const templates = [
   {
-    id: 'developer-cv',
-    name: 'Developer CV',
-    description: 'A modern, clean CV for developers and software engineers.',
-    imageUrl: '/images/templates/developer-cv.png',
-    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=developer-cv-overleaf'
-  },
-  {
     id: 'medium-length-professional-cv',
     name: 'Professional CV',
-    description: 'A medium-length professional CV for experienced individuals.',
+    description: 'A clean, professional CV template suitable for most industries and career levels.',
     imageUrl: '/images/templates/medium-length-professional-cv.png',
     overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=medium-length-professional-cv-overleaf'
   },
   {
-    id: 'stylish-cv',
-    name: 'Stylish CV',
-    description: 'A visually appealing CV to make your profile stand out.',
-    imageUrl: '/images/templates/stylish-cv.png',
-    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=stylish-cv-overleaf'
-  },
-  {
-    id: 'freeman-cv',
-    name: 'Freeman CV/Resume',
-    description: 'A classic and elegant resume template suitable for many professions.',
-    imageUrl: '/images/templates/freeman-cv-resume.png',
-    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=freeman-cv-overleaf&engine=xelatex'
-  },
-  {
-    id: 'awesome-resume-cv',
-    name: 'Awesome Resume/CV',
-    description: 'A popular and feature-rich template for CVs and resumes.',
-    imageUrl: '/images/templates/awesome-resume-cv-and-cover-letter.png',
-    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=awesome-resume-cv-overleaf&engine=xelatex'
-  },
-  {
-    id: 'compact-academic-cv',
-    name: 'Compact Academic CV',
-    description: 'A space-efficient CV perfect for academic applications.',
-    imageUrl: '/images/templates/compact-academic-cv.png',
-    overleafUrl: 'https://www.overleaf.com/docs?snip_uri=https://www.latextemplates.com/actions/action_download_template?template=compact-academic-cv-overleaf'
+    id: 'faang-cv',
+    name: 'FAANG Resume',
+    description: 'A modern resume template optimized for top tech companies (FAANG) applications.',
+    imageUrl: '/images/templates/faang.png',
+    overleafUrl: 'https://www.overleaf.com/project/new/template/26352?id=49581886&latexEngine=pdflatex&mainFile=resume_faangpath.tex&templateName=FAANGPath+Simple+Template&texImage=texlive-full%3A2024.1'
   }
 ];
 // ----------------------------
@@ -294,11 +259,11 @@ const Results = () => {
         title: "Your Resume is Ready!",
         description: `Personalized LaTeX code generated successfully.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating LaTeX recommendation:', error);
       toast({
         title: "Generation Failed",
-        description: error.message || "Could not generate LaTeX recommendation. Please try again.",
+        description: error instanceof Error ? error.message : "Could not generate LaTeX recommendation. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -358,32 +323,31 @@ const Results = () => {
 
   return (
     <div className="bg-slate-950 min-h-screen text-white">
-      <header className="sticky top-0 z-50 p-4 md:px-6 border-b border-slate-800 bg-slate-950/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 p-3 md:p-4 md:px-6 border-b border-slate-800 bg-slate-950/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <Link href="/">
             <Logo />
           </Link>
-          <div className="flex items-center gap-4">
-            <a href="https://coff.ee/waisnu" target="_blank" rel="noopener noreferrer">
+          <div className="flex items-center gap-2 md:gap-4">
+            <a href="https://coff.ee/waisnu" target="_blank" rel="noopener noreferrer" className="hidden sm:block">
                 <Button variant="ghost" className="flex items-center gap-2 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10">
-                   
-                    <span className="hidden sm:inline text-sm">Buy me a beer</span>
+                    <span className="hidden lg:inline text-sm">Buy me a beer</span>
                     <span className="text-lg">🍺</span>
-
                 </Button>
             </a>
-            <Button onClick={handleAnalyzeAnother} className="bg-primary hover:bg-primary/90 text-white">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Analyze Another
+            <Button onClick={handleAnalyzeAnother} className="bg-primary hover:bg-primary/90 text-white text-sm md:text-base">
+              <ArrowLeft className="mr-1 md:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Analyze Another</span>
+              <span className="sm:hidden">Another</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <div ref={reportRef} className="p-4 md:p-8 bg-slate-950">
-        <main className="max-w-7xl mx-auto space-y-8">
-          <div className="text-center pt-8 pb-4">
-            <h1 className="text-4xl font-bold tracking-tighter bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
+      <div ref={reportRef} className="p-3 md:p-8 bg-slate-950 pb-8 md:pb-16">
+        <main className="max-w-7xl mx-auto space-y-6 md:space-y-8">
+          <div className="text-center pt-4 md:pt-8 pb-4">
+            <h1 className="text-2xl md:text-4xl font-bold tracking-tighter bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
               Your Resume Analysis Report
             </h1>
             <p className="text-slate-400 mt-2 mb-4">
@@ -406,7 +370,16 @@ const Results = () => {
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 max-w-2xl mx-auto">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="details">Detailed Feedback</TabsTrigger>
+              <TabsTrigger 
+                value="details"
+                disabled={analysisResult.isValidResume === false}
+                className={cn(
+                  'transition-all duration-300',
+                  { 'opacity-50 cursor-not-allowed': analysisResult.isValidResume === false },
+                )}
+              >
+                Detailed Feedback
+              </TabsTrigger>
               <TabsTrigger 
                 value="latex" 
                 disabled={analysisResult.isValidResume === false}
@@ -430,10 +403,10 @@ const Results = () => {
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="h-5 w-5 text-amber-400" />
                   <div>
-                    <p className="text-amber-400 font-medium">LaTeX Generator Disabled</p>
+                    <p className="text-amber-400 font-medium">Advanced Features Disabled</p>
                     <p className="text-amber-300/80 text-sm">
-                      The AI Resume Generator is only available for valid resume content. 
-                      Please upload a proper resume or CV to access this feature.
+                      Detailed feedback and AI Resume Generator are only available for valid resume content. 
+                      Please upload a proper resume or CV to access these features.
                     </p>
                   </div>
                 </div>
@@ -633,26 +606,18 @@ const Results = () => {
                   </p>
                 </div>
 
-                {/* --- Template Carousel --- */}
-                <div className="w-full max-w-4xl mx-auto">
-                   <Carousel
-                    opts={{
-                      align: "start",
-                      loop: true,
-                    }}
-                    className="w-full"
-                  >
-                    <CarouselContent>
-                      {templates.map((template) => (
-                        <CarouselItem key={template.id} className="md:basis-1/2 lg:basis-1/3">
-                          <div className="p-1">
-                            <Card
-                              onClick={() => generateLatexRecommendation(template.id)}
-                              className={`overflow-hidden bg-slate-900 border border-slate-800 hover:border-primary transition-all duration-300 cursor-pointer group ${
-                                selectedTemplate?.id === template.id && !isGenerating ? 'ring-2 ring-primary' : ''
-                              }`}
-                            >
-                              <div className="relative h-48 w-full">
+                {/* --- Template Grid (2 templates) --- */}
+                <div className="w-full max-w-5xl mx-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {templates.map((template) => (
+                      <div key={template.id} className="flex justify-center">
+                        <Card
+                          onClick={() => generateLatexRecommendation(template.id)}
+                          className={`overflow-hidden bg-slate-900 border border-slate-800 hover:border-primary transition-all duration-300 cursor-pointer group w-full max-w-md ${
+                            selectedTemplate?.id === template.id && !isGenerating ? 'ring-2 ring-primary' : ''
+                          }`}
+                        >
+                          <div className="relative h-80 w-full">
                                 <Image
                                   src={template.imageUrl}
                                   alt={template.name}
@@ -676,29 +641,25 @@ const Results = () => {
                                   </motion.div>
                                 </div>
 
-                                <div className="absolute bottom-4 left-4 right-4">
-                                  <h3 className="text-white font-semibold text-lg mb-2">{template.name}</h3>
-                                  <p className="text-slate-200 text-sm opacity-90">{template.description}</p>
+                            <div className="absolute bottom-4 left-4 right-4">
+                              <h3 className="text-white font-semibold text-lg mb-2">{template.name}</h3>
+                              <p className="text-slate-200 text-sm opacity-90">{template.description}</p>
+                            </div>
+                            
+                            {/* Loading State */}
+                            {isGenerating === template.id && (
+                              <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                                <div className="text-center">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                                  <span className="text-white text-sm">Generating...</span>
                                 </div>
-                                
-                                {/* Loading State */}
-                                {isGenerating === template.id && (
-                                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                                    <div className="text-center">
-                                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                                      <span className="text-white text-sm">Generating...</span>
-                                    </div>
-                                  </div>
-                                )}
                               </div>
-                            </Card>
+                            )}
                           </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="ml-8 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300" />
-                    <CarouselNext className="mr-8 bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300" />
-                  </Carousel>
+                        </Card>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* --- Generated Code Section --- */}
@@ -712,24 +673,33 @@ const Results = () => {
                        className="space-y-6"
                      >
                        <div className="text-center">
-                          <h2 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+                          <h2 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-2">
                             Step 3: Launch Your Career with LaTeX
                           </h2>
                           <p className="text-slate-400">Your interview-ready LaTeX code for the <span className="font-bold text-primary">{selectedTemplate.name}</span> template is ready to deploy!</p>
+                          
+                          {/* Disclaimer Note */}
+                          <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                            <p className="text-amber-300 text-sm">
+                              <span className="font-semibold">Note:</span> The generated LaTeX code is currently in beta and may require minor manual adjustments in Overleaf. 
+                              We're continuously improving the generation quality for future versions.
+                            </p>
+                          </div>
                        </div>
 
                        {/* Generated LaTeX Code */}
-                       <Card className="p-6 bg-slate-900 border border-slate-800">
+                       <Card className="p-4 md:p-6 bg-slate-900 border border-slate-800">
                          <div className="flex justify-between items-center mb-4">
                            <h3 className="text-xl font-semibold flex items-center">
                              <Code className="mr-3 h-6 w-6 text-primary" />
                              Your Personalized LaTeX Code
                            </h3>
-                           <div className="flex gap-2">
+                           <div className="flex flex-col sm:flex-row gap-2">
                              <Button
                                onClick={() => setShowFullCode(!showFullCode)}
                                variant="outline"
                                size="sm"
+                               className="text-xs sm:text-sm"
                              >
                                {showFullCode ? 'Show Preview' : 'Show Full Code'}
                              </Button>
@@ -737,15 +707,16 @@ const Results = () => {
                                onClick={() => copyToClipboard(generatedCode)}
                                variant="outline"
                                size="sm"
+                               className="text-xs sm:text-sm"
                              >
-                               <Copy className="h-4 w-4 mr-2" />
+                               <Copy className="h-4 w-4 mr-1 sm:mr-2" />
                                Copy Code
                              </Button>
                            </div>
                          </div>
                          
                          <div className="relative">
-                           <pre className={`bg-slate-950 p-4 rounded-lg overflow-auto text-sm text-slate-300 border border-slate-700 ${
+                           <pre className={`bg-slate-950 p-3 md:p-4 rounded-lg overflow-auto text-xs md:text-sm text-slate-300 border border-slate-700 ${
                              showFullCode ? 'max-h-none' : 'max-h-[500px]'
                            }`}>
                              <code>{generatedCode}</code>

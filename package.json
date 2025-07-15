@@ -1,12 +1,13 @@
 {
   "name": "resumify-ai",
   "private": true,
+  "type": "module",
   "description": "Resume analysis and optimization tool",
   "author": "Jhonn Vincent Arcipe",
   "version": "0.0.1",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -42,6 +43,7 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@tanstack/react-query": "^5.56.2",
     "@types/formidable": "^3.4.5",
+    "caniuse-lite": "^1.0.30001727",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",

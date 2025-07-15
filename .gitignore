@@ -138,7 +138,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
+.claude 
+/bug
 # Vercel
 .vercel
 

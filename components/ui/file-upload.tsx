@@ -11,13 +11,13 @@ interface FileUploadProps {
   accept?: Record<string, string[]>
   maxSize?: number
   className?: string
+  isAnalyzing?: boolean
 }
 
 export function FileUpload({ 
   onFileSelect, 
   accept = { 
     'application/pdf': ['.pdf'], 
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     'image/*': ['.png', '.jpg', '.jpeg'] 
   },
   maxSize = 5 * 1024 * 1024, // 5MB
@@ -35,7 +35,7 @@ export function FileUpload({
       if (rejection.errors[0]?.code === 'file-too-large') {
         setError('File is too large. Maximum size is 5MB.')
       } else if (rejection.errors[0]?.code === 'file-invalid-type') {
-        setError('Invalid file type. Please upload a PDF, DOCX, or image file.')
+        setError('Invalid file type. Please upload a PDF or image file (PNG, JPG, JPEG).')
       }
       return
     }
@@ -120,10 +120,10 @@ export function FileUpload({
                   {isDragActive ? 'Drop your resume here' : 'Upload your resume'}
                 </h3>
                 <p className="text-muted-foreground">
-                  Drag & drop your file, or click to browse
+                  Drag & drop your resume/CV file, or click to browse
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Supports PDF, DOCX, PNG, JPG up to 5MB
+                  Supports PDF and image formats (PNG, JPG, JPEG) up to 5MB
                 </p>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/router'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
+import AdminLoading from '@/components/ui/admin-loading'
 import {
   Shield, Key, Activity, AlertTriangle, CheckCircle, XCircle, 
   Users, FileText, Zap, TrendingUp, Eye, EyeOff, RefreshCw
@@ -55,81 +56,26 @@ const AdminPage = () => {
   const { toast } = useToast()
   const router = useRouter()
 
-  useEffect(() => {
-    // Check if already authenticated
-    const authStatus = localStorage.getItem('adminAuth')
-    if (authStatus === 'true') {
-      // Verify with server
-      verifyAuthentication()
-    }
-  }, [])
-
-  const verifyAuthentication = async () => {
+  const checkApiKeyHealth = useCallback(async (currentStats: AdminStats) => {
     try {
-      const response = await fetch('/api/admin/verify', {
+      const response = await fetch('/api/admin/health', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
       
       if (response.ok) {
-        setIsAuthenticated(true)
-        loadStats()
-      } else {
-        localStorage.removeItem('adminAuth')
-        setIsAuthenticated(false)
+        const healthData = await response.json()
+        currentStats.apiKeyHealth = healthData.apiKeyHealth
       }
     } catch (error) {
-      localStorage.removeItem('adminAuth')
-      setIsAuthenticated(false)
+      console.error('Health check failed:', error)
     }
-  }
+    
+    currentStats.lastUpdated = new Date().toISOString()
+    localStorage.setItem('adminStats', JSON.stringify(currentStats))
+  }, [])
 
-  const handleLogin = async () => {
-    setIsAuthenticating(true)
-    try {
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setIsAuthenticated(true)
-        localStorage.setItem('adminAuth', 'true')
-        localStorage.setItem('adminToken', data.token)
-        loadStats()
-        toast({
-          title: "Access Granted",
-          description: "Welcome to the admin dashboard",
-        })
-      } else {
-        toast({
-          title: "Access Denied",
-          description: "Invalid password",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Authentication Error",
-        description: "Failed to authenticate",
-        variant: "destructive",
-      })
-    } finally {
-      setIsAuthenticating(false)
-    }
-  }
-
-  const handleLogout = () => {
-    setIsAuthenticated(false)
-    localStorage.removeItem('adminAuth')
-    localStorage.removeItem('adminToken')
-    setPassword('')
-    router.push('/')
-  }
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setIsLoading(true)
     try {
       // Fetch stats from server
@@ -176,25 +122,80 @@ const AdminPage = () => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [toast, checkApiKeyHealth])
 
-  const checkApiKeyHealth = async (currentStats: AdminStats) => {
+  const verifyAuthentication = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/health', {
+      const response = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
       
       if (response.ok) {
-        const healthData = await response.json()
-        currentStats.apiKeyHealth = healthData.apiKeyHealth
+        setIsAuthenticated(true)
+        loadStats()
+      } else {
+        localStorage.removeItem('adminAuth')
+        setIsAuthenticated(false)
       }
     } catch (error) {
-      console.error('Health check failed:', error)
+      localStorage.removeItem('adminAuth')
+      setIsAuthenticated(false)
     }
-    
-    currentStats.lastUpdated = new Date().toISOString()
-    localStorage.setItem('adminStats', JSON.stringify(currentStats))
+  }, [loadStats])
+
+  useEffect(() => {
+    // Check if already authenticated
+    const authStatus = localStorage.getItem('adminAuth')
+    if (authStatus === 'true') {
+      // Verify with server
+      verifyAuthentication()
+    }
+  }, [verifyAuthentication])
+
+  const handleLogin = async () => {
+    setIsAuthenticating(true)
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setIsAuthenticated(true)
+        localStorage.setItem('adminAuth', 'true')
+        localStorage.setItem('adminToken', data.token)
+        loadStats()
+        toast({
+          title: "Access Granted",
+          description: "Welcome to the admin dashboard",
+        })
+      } else {
+        toast({
+          title: "Access Denied",
+          description: "Invalid password",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Authentication Error",
+        description: "Failed to authenticate",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAuthenticating(false)
+    }
+  }
+
+  const handleLogout = () => {
+    setIsAuthenticated(false)
+    localStorage.removeItem('adminAuth')
+    localStorage.removeItem('adminToken')
+    setPassword('')
+    router.push('/')
   }
 
   const refreshStats = () => {
@@ -252,7 +253,10 @@ const AdminPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4">
+    <div className="min-h-screen bg-slate-950 p-4 relative">
+      {/* Loading overlay */}
+      {isAuthenticated && isLoading && <AdminLoading />}
+      
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">

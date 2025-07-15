@@ -119,14 +119,24 @@ async function generateWithFailover(prompt: string, retries = apiKeys.length) {
 const buildPrompt = (resumeText: string) => `
 You are an expert resume analyst. Analyze this resume and provide structured feedback.
 
-**FIRST: RESUME VALIDATION**
-Before analyzing, determine if this is actually a resume/CV. A valid resume should contain:
+**FIRST: STRICT RESUME VALIDATION**
+Before analyzing, determine if this is actually a resume/CV. A valid resume MUST contain:
 - Professional contact information (name, email, phone)
 - Work experience OR education section
 - Skills or qualifications relevant to employment
-- Professional formatting and structure
+- Professional intent and formatting
 
-If it's NOT a resume (e.g., random text, stories, recipes, etc.), set isValidResume to false.
+**INVALID CONTENT EXAMPLES:**
+- Random images unrelated to work/career
+- Personal photos, memes, or social media content
+- Recipes, stories, creative writing, or fiction
+- Academic papers or research documents (unless specifically a CV)
+- Marketing materials, brochures, or advertisements
+- Screenshots of applications or websites
+- Medical documents, forms, or certificates
+- Random text, lorem ipsum, or test content
+
+**STRICT CRITERIA:** Only documents that are clearly intended as professional resumes/CVs should have isValidResume=true. When in doubt, set to false.
 
 **SCORING RUBRIC (1-5 SCALE):**
 - **1.0-1.9 (Poor):** Missing critical sections (like contact info or experience). Contains major spelling/grammar errors. Unprofessional tone or formatting. Fails to show qualifications.
