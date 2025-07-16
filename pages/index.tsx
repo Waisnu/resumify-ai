@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
@@ -61,7 +61,7 @@ const Index = () => {
     { message: "Compiling your personalized improvement plan..." }
   ]
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = useCallback(async (file: File) => {
     if (isAnalyzing) return;
 
     setSelectedFile(file)
@@ -187,9 +187,9 @@ const Index = () => {
       setAnalysisStep(0)
       setProgress(0)
     }
-  }
+  }, [isAnalyzing, router, toast])
 
-  const features = [
+  const features = useMemo(() => [
     {
       icon: Zap,
       title: "30-Second AI Analysis",
@@ -232,7 +232,7 @@ const Index = () => {
       color: "text-pink-400",
       stat: "Works in 3 clicks"
     }
-  ]
+  ], [])
 
   return (
     <>

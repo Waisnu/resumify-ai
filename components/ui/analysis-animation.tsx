@@ -231,10 +231,10 @@ export const AnalysisAnimation = ({
     if (isAnalyzing) {
       const timer = setTimeout(() => setShowDetail(true), 800);
       return () => clearTimeout(timer);
-    } else {
-      setShowDetail(false);
     }
-  }, [isAnalyzing, adaptiveStep]);
+    setShowDetail(false);
+    return undefined;
+  }, [isAnalyzing]);
 
   return (
     <AnimatePresence>

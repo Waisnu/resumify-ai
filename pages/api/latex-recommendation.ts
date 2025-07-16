@@ -3,6 +3,8 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import path from 'path';
 import fs from 'fs/promises';
 import { incrementCounter, logError, trackTokenUsage } from '@/lib/admin-stats';
+import { logger } from '@/lib/secure-logger';
+import { PerformanceMonitor } from '@/lib/performance-monitor';
 
 // --- Advanced API Key Manager with Load Balancing and Rate Limiting ---
 class APIKeyManager {
@@ -124,7 +126,7 @@ class APIKeyManager {
     metrics.requests++;
     metrics.lastUsed = now;
     
-    console.log(`🔑 Using API Key #${keyIndex + 1} (Requests: ${metrics.requests}, Errors: ${metrics.errors})`);
+    logger.debug('API key selected', { keyIndex: keyIndex + 1, requests: metrics.requests, errors: metrics.errors });
     
     return this.clients[keyIndex];
   }
@@ -150,13 +152,13 @@ class APIKeyManager {
       // Check if it's a rate limit error
       if (error instanceof Error && (error.message?.includes('429') || error.message?.includes('quota'))) {
         metrics.rateLimitReset = Date.now() + 60000; // Wait 1 minute
-        console.log(`⚠️ Rate limit hit for API Key #${keyIndex + 1}, cooling down for 60 seconds`);
+        logger.warn('Rate limit hit for API key', { keyIndex: keyIndex + 1, cooldownSeconds: 60 });
       }
       
       // Mark as unhealthy if too many errors
       if (metrics.errors > 5) {
         metrics.isHealthy = false;
-        console.log(`❌ API Key #${keyIndex + 1} marked as unhealthy due to excessive errors`);
+        logger.error('API key marked as unhealthy', { keyIndex: keyIndex + 1, errors: metrics.errors });
       }
     }
   }
@@ -166,7 +168,7 @@ class APIKeyManager {
     // Only log if there are actually unhealthy keys
     const unhealthyKeys = Array.from(this.keyMetrics.values()).filter(m => !m.isHealthy).length;
     if (unhealthyKeys > 0) {
-      console.log(`🔍 API key health check: ${unhealthyKeys} unhealthy keys found`);
+      logger.info('API key health check completed', { unhealthyKeys });
     }
     
     for (let i = 0; i < this.apiKeys.length; i++) {
@@ -239,7 +241,7 @@ async function generateWithFailover(prompt: string, maxRetries = 3) {
       client = await apiKeyManager.getClient();
       const model = client.getGenerativeModel({ model: MODEL_NAME });
       
-      console.log(`🚀 LaTeX Generation Attempt ${attempts + 1}/${maxRetries} with ${MODEL_NAME}`);
+      logger.info('LaTeX generation attempt', { attempt: attempts + 1, maxRetries, model: MODEL_NAME });
       
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -580,7 +582,7 @@ Company Name \\hfill \\textit{San Francisco, CA}
     }
   };
 
-  const instruction = templateInstructions[templateId] || templateInstructions['medium-length-professional-cv'];
+  const instruction = templateInstructions[templateId as keyof typeof templateInstructions] || templateInstructions['medium-length-professional-cv'];
 
   return `You are a world-class LaTeX expert and technical writer. Your task is to generate a perfect, professional LaTeX document with ZERO errors.
 

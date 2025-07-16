@@ -1,9 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { incrementCounter, logError, trackTokenUsage } from '@/lib/admin-stats';
+import { ValidationError, AIServiceError, handleApiError, validateEnvVar } from '@/lib/error-handler';
+import { analysisRateLimiter, withRateLimit } from '@/lib/rate-limiter';
 
 // --- Smart API Key Manager ---
-const apiKeys = (process.env.GEMINI_API_KEYS || '').split(',').map(key => key.trim()).filter(Boolean);
+const apiKeys = validateEnvVar('GEMINI_API_KEYS', '').split(',').map(key => key.trim()).filter(Boolean);
 if (apiKeys.length === 0) {
   throw new Error('GEMINI_API_KEYS is not set or empty in environment variables.');
 }
@@ -194,7 +196,7 @@ ${JSON.stringify(
 ${resumeText}
 ---`;
 
-export default async function handler(
+async function analyzeHandler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -205,12 +207,38 @@ export default async function handler(
 
   const { text } = req.body;
 
-  if (!text || typeof text !== 'string' || text.trim().length < 50) {
-    return res.status(400).json({ error: 'Invalid or insufficient resume text provided. Minimum 50 characters required.' });
+  // Enhanced input validation
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: 'Resume text is required and must be a string.' });
+  }
+  
+  const trimmedText = text.trim();
+  
+  if (trimmedText.length < 50) {
+    return res.status(400).json({ 
+      error: `Resume text too short. Minimum 50 characters required, received ${trimmedText.length}.` 
+    });
+  }
+  
+  if (trimmedText.length > 50000) {
+    return res.status(400).json({ 
+      error: `Resume text too long. Maximum 50,000 characters allowed, received ${trimmedText.length}.` 
+    });
+  }
+  
+  // Check for suspicious patterns
+  const suspiciousPatterns = [
+    /<script[^>]*>.*?<\/script>/gi,
+    /<[^>]*javascript:/gi,
+    /data:text\/html/gi
+  ];
+  
+  if (suspiciousPatterns.some(pattern => pattern.test(trimmedText))) {
+    return res.status(400).json({ error: 'Invalid content detected in resume text.' });
   }
 
   try {
-    const prompt = buildPrompt(text);
+    const prompt = buildPrompt(trimmedText);
 
     console.log(`📝 Calling Gemini API with model: ${MODEL_NAME}`);
     const result = await generateWithFailover(prompt);
@@ -221,7 +249,7 @@ export default async function handler(
     console.log('🎉 Analysis response generated successfully');
     
     // Track token usage for monitoring
-    const estimatedTokens = Math.ceil((text.length + responseJson.length) / 4); // Rough estimate: 4 chars per token
+    const estimatedTokens = Math.ceil((trimmedText.length + responseJson.length) / 4); // Rough estimate: 4 chars per token
     await trackTokenUsage('analysis', estimatedTokens, MODEL_NAME);
     
     // Track successful analysis
@@ -263,4 +291,16 @@ export default async function handler(
     }
     return res.status(500).json({ error: 'Failed to analyze resume due to an unexpected error.' });
   }
+}
+
+// Apply rate limiting middleware
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const rateLimitMiddleware = withRateLimit(analysisRateLimiter);
+  
+  await rateLimitMiddleware(req, res, async () => {
+    await analyzeHandler(req, res);
+  });
 } 

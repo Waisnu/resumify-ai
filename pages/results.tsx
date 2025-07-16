@@ -339,6 +339,12 @@ const Results = () => {
             <Logo />
           </Link>
           <div className="flex items-center gap-2 md:gap-4">
+            <Link href="/cover-letter" className="hidden sm:block">
+              <Button variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10">
+                <FileText className="mr-2 h-4 w-4" />
+                Create Cover Letter
+              </Button>
+            </Link>
             <a href="https://coff.ee/waisnu" target="_blank" rel="noopener noreferrer" className="hidden sm:block">
                 <Button variant="ghost" className="flex items-center gap-2 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10">
                     <span className="hidden lg:inline text-sm">Buy me a beer</span>

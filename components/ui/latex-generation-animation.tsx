@@ -225,10 +225,10 @@ export const LaTeXGenerationAnimation = ({
     if (isGenerating) {
       const timer = setTimeout(() => setShowDetail(true), 600);
       return () => clearTimeout(timer);
-    } else {
-      setShowDetail(false);
     }
-  }, [isGenerating, adaptiveStep]);
+    setShowDetail(false);
+    return undefined;
+  }, [isGenerating]);
 
   return (
     <AnimatePresence>

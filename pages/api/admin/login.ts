@@ -2,7 +2,10 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 
 // Server-side admin password (NOT exposed to client)
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  throw new Error('ADMIN_PASSWORD environment variable is required for security');
+}
 
 // Simple token storage (in production, use Redis or database)
 const activeTokens = new Set<string>();
@@ -25,7 +28,7 @@ export default async function handler(
 
     if (password !== ADMIN_PASSWORD) {
       // Add a small delay to prevent brute force attacks
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
       return res.status(401).json({ error: 'Invalid password' });
     }
 
@@ -33,11 +36,16 @@ export default async function handler(
     const token = crypto.randomBytes(32).toString('hex');
     activeTokens.add(token);
 
-    // Clean up old tokens (simple cleanup - in production use proper expiration)
-    if (activeTokens.size > 10) {
+    // Clean up old tokens with proper expiration (enhanced security)
+    if (activeTokens.size > 5) {
       const tokensArray = Array.from(activeTokens);
-      tokensArray.slice(0, 5).forEach(oldToken => activeTokens.delete(oldToken));
+      tokensArray.slice(0, 3).forEach(oldToken => activeTokens.delete(oldToken));
     }
+    
+    // Set token expiration (12 hours)
+    setTimeout(() => {
+      activeTokens.delete(token);
+    }, 12 * 60 * 60 * 1000);
 
     return res.status(200).json({ 
       success: true, 
